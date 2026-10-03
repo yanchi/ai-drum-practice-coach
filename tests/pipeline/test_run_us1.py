@@ -44,6 +44,7 @@ def test_successful_run(tmp_path, song_path):
     assert data["alignment"]["lag_samples"] == 0
     assert [s["kind"] for s in data["stems"]] == ["drums"]
     assert data["warnings"] == []
+    assert f"run_id: {run_dir.name}" in (run_dir / "evaluation.yaml").read_text()
 
 
 def test_failure_leaves_nothing(tmp_path, song_path):

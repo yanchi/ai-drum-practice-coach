@@ -121,3 +121,40 @@ class SeparationRun:
             "environment": self.environment,
             "warnings": [w.to_dict() for w in self.warnings],
         }
+
+
+INSTRUMENTS = ("kick", "snare", "hihat")
+SectionLabel = Literal["verse", "chorus", "fill"]
+
+
+@dataclass(frozen=True)
+class ListeningRating:
+    drum_clarity: int  # 1-5, 5 = drums clearly audible
+    bleed: int  # 1-5, 5 = no other instruments
+    artifacts: int  # 1-5, 5 = no degradation (recorded only, not a pass criterion)
+
+
+@dataclass(frozen=True)
+class HitCount:
+    original: int  # hits audible in the original (excluding ghost notes)
+    detected: int  # of those, hits audible in the drum stem
+
+
+@dataclass(frozen=True)
+class CheckSection:
+    label: SectionLabel
+    start_sec: float
+    end_sec: float
+    counts: dict[str, HitCount]  # keyed by INSTRUMENTS
+    ghost_notes_memo: str = ""
+
+
+@dataclass(frozen=True)
+class SeparationEvaluation:
+    run_id: str
+    song_label: str
+    genre: str
+    evaluated_at: str
+    listening: ListeningRating
+    sections: list[CheckSection]
+    notes: str = ""

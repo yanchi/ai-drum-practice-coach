@@ -14,6 +14,7 @@ from poc.audio.decode import load_song
 from poc.audio.signal import estimate_lag, peak, rms_db_relative
 from poc.domain import AlignmentCheck, RunWarning, SeparationRun, Song, Stem, StemKind
 from poc.errors import PocError
+from poc.evaluation.sheet import render_template
 from poc.separation.base import SeparationOutput, Separator
 
 NEARLY_SILENT_DB = -30.0  # research R-10
@@ -136,6 +137,7 @@ def run_separation(
         (partial_dir / "run.json").write_text(
             json.dumps(run.to_dict(), indent=2, ensure_ascii=False) + "\n"
         )
+        (partial_dir / "evaluation.yaml").write_text(render_template(run.run_id))
         partial_dir.rename(final_dir)
     except BaseException:
         shutil.rmtree(partial_dir, ignore_errors=True)

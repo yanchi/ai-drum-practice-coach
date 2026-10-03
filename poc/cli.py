@@ -28,7 +28,13 @@ def _cmd_separate(args: argparse.Namespace) -> int:
 
 
 def _cmd_summarize(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.evaluation.summary import summarize
+
+    result = summarize(args.runs_dir, args.report_dir)
+    for run_id in result.incomplete:
+        print(f"skipped (evaluation.yaml not filled in): {run_id}", file=sys.stderr)
+    print(result.markdown, end="")
+    return 0
 
 
 def _cmd_check_repro(args: argparse.Namespace) -> int:

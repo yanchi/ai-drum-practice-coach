@@ -121,15 +121,19 @@ Evaluated songs: 5 (genres: rock, pop, funk, ballad, jazz)
 
 | Criterion | Target | Result | Status |
 |---|---|---|---|
-| SC-001 Generation success | 100% of ≥5 songs | 5/5 | PASS |
-| SC-002 Hit rate (excl. ghost notes) | ≥ 90% | 93.4% (kick 98.1 / snare 95.0 / hihat 88.2) | PASS |
-| SC-003 Drum clarity (mean) | ≥ 4.0 | 4.2 | PASS |
-| SC-003 Bleed (mean) | ≥ 3.0 | 3.4 | PASS |
+| SC-001 Generation success | 100% of ≥5 songs | 5 songs evaluated | PASS |
+| SC-002 Hit rate (excl. ghost notes) | ≥ 90% in every song | min 91.2% (kick 98.1 / snare 95.0 / hihat 88.2) | PASS |
+| SC-003 Listening (mean) | clarity ≥ 4.0, bleed ≥ 3.0 | clarity 4.2 / bleed 3.4 | PASS |
 | SC-004 Alignment | ≤ 1 ms in all songs | max 0.00 ms | PASS |
 | SC-005 4-min song time | ≤ 10 min | 3.6 min (normalized) | PASS |
+| SC-007 Run records complete | all FR-010 items in every run | 6/6 complete | PASS |
 
 Artifacts (record only): mean 3.8
+
+SC-006 (reproducibility) is checked separately with `poc check-repro`.
 ```
 
 - SC-005 は「処理時間 ÷ 曲長 × 240 秒」で 4 分の曲に換算した値の最大値で判定する
-- SC-006 は `check-repro`、SC-007 は `run.json` の必須項目の有無を `summarize` が確認する
+- SC-002 は曲ごとの確認率の最小値で判定する (すべての曲で 90% 以上)
+- SC-001〜SC-003 は、評価済みの曲 (同じ曲の再実行は 1 曲と数える) が 5 曲未満なら `INSUFFICIENT`
+- SC-006 は `check-repro`、SC-007 は全 run の `run.json` の必須項目の有無を `summarize` が確認する
