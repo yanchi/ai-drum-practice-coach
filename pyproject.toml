@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "adtof-pytorch",
+    "beat-this>=1.1.0",
     "demucs==4.1.0",
     "julius>=0.2.3",
     "librosa>=0.11.0",

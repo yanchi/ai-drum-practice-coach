@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from poc.recording.check import loopback_metrics
-from poc.recording.record import ClockFit, build_playback, fit_clock
+from poc.recording.record import ClockFit, add_beat_clicks, build_playback, fit_clock
 
 SR = 44100
 
@@ -69,3 +69,30 @@ def test_calibration_playback_has_one_click_per_beat():
         start = count_in + i * SR
         assert np.max(np.abs(playback[0, start : start + 200])) > 0.05
         assert np.all(playback[0, start + SR // 2 : start + SR - 10] == 0)
+
+
+def test_add_beat_clicks_places_accented_downbeats():
+    count_in = SR
+    playback = np.zeros((2, count_in + 3 * SR), dtype=np.float32)
+    beats = [0.5, 1.0, 1.5, 2.0]
+    clicks = add_beat_clicks(playback, count_in, beats, [0.5, 2.0], SR, gain=0.3)
+    assert clicks == 4
+    assert np.all(playback[:, :count_in] == 0)  # the count-in is left alone
+    for t in beats:
+        start = count_in + int(t * SR)
+        assert np.max(np.abs(playback[0, start : start + 200])) > 0.05
+        assert np.all(playback[0, start - 100 : start] == 0)
+    # downbeats use a different (higher) click than the other beats
+    a = playback[0, count_in + SR // 2 : count_in + SR // 2 + 2000]
+    b = playback[0, count_in + SR : count_in + SR + 2000]
+    assert not np.allclose(a, b)
+
+
+def test_add_beat_clicks_skips_glitch_beats_and_stops_at_the_end():
+    playback = np.zeros((2, SR), dtype=np.float32)
+    beats = [0.1, 0.4, 0.45, 0.7, 0.99, 1.3, 1.6]  # 0.45: tracker glitch; >= 0.99 off the end
+    clicks = add_beat_clicks(playback, 0, beats, [], SR)
+    assert clicks == 4  # 0.1, 0.4, 0.7, 0.99 (cut short at the buffer end)
+    without_glitch = np.zeros_like(playback)
+    add_beat_clicks(without_glitch, 0, [b for b in beats if b != 0.45], [], SR)
+    assert np.array_equal(playback, without_glitch)

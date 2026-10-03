@@ -93,7 +93,12 @@ def _cmd_record(args: argparse.Namespace) -> int:
     from poc.recording.record import record_play_along
 
     out = record_play_along(
-        args.poc1_run_dir, args.device, args.midi_port, args.output_dir, args.max_seconds
+        args.poc1_run_dir,
+        args.device,
+        args.midi_port,
+        args.output_dir,
+        args.max_seconds,
+        click=args.click,
     )
     data = json.loads((out / "recording.json").read_text())
     print(f"notes={data['note_count']} duration={data['duration_sec']:.1f}s", file=sys.stderr)
@@ -216,6 +221,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--midi-port", default="TD-17")
     p.add_argument("--output-dir", type=Path, default=Path("output/recordings"))
     p.add_argument("--max-seconds", type=float, help="stop after this many seconds of the song")
+    p.add_argument(
+        "--click", action="store_true", help="play a click on every song beat (Beat This!)"
+    )
     p.set_defaults(func=_cmd_record)
 
     p = sub.add_parser("evaluate", help="evaluate drum events against ground truth")

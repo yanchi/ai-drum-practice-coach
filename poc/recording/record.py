@@ -27,6 +27,8 @@ SAMPLE_RATE = 44100
 BLOCK_SIZE = 256
 COUNT_IN_BEATS = 4
 COUNT_IN_BPM = 120
+CLICK_GAIN = 0.3  # song beat clicks (`record --click`)
+MIN_BEAT_RATIO = 0.6
 
 
 def build_playback(
@@ -43,6 +45,38 @@ def build_playback(
         count_in[:, i * beat : i * beat + len(click)] += click
     body = match_channels(accompaniment.astype(np.float32), 2)
     return np.concatenate([count_in, body], axis=1), count_in.shape[1]
+
+
+def add_beat_clicks(
+    playback: np.ndarray,
+    count_in: int,
+    beats: list[float],
+    downbeats: list[float],
+    sr: int,
+    gain: float = CLICK_GAIN,
+) -> int:
+    """Add a click per song beat (higher on downbeats) to the playback in place.
+
+    A beat closer than MIN_BEAT_RATIO of the median interval to the previous clicked beat is
+    skipped, so a beat tracker glitch does not sound as a flam. Returns the number of clicks."""
+    if len(beats) < 2:
+        return 0
+    min_gap = MIN_BEAT_RATIO * float(np.median(np.diff(beats)))
+    downbeat_set = {round(t, 3) for t in downbeats}
+    accent, normal = gain * _click(1600.0, sr), gain * _click(1000.0, sr)
+    clicks, last = 0, None
+    for t in beats:
+        if last is not None and t - last < min_gap:
+            continue
+        last = t
+        click = accent if round(t, 3) in downbeat_set else normal
+        start = count_in + int(round(t * sr))
+        end = min(start + len(click), playback.shape[1])
+        if start >= end:
+            break
+        playback[:, start:end] += click[: end - start]
+        clicks += 1
+    return clicks
 
 
 @dataclass(frozen=True)
@@ -210,13 +244,26 @@ def record_play_along(
     midi_port_name: str,
     output_dir: Path,
     max_seconds: float | None = None,
+    click: bool = False,
 ) -> Path:
-    """Record one play-along with the PoC 1 accompaniment. Returns the recording directory."""
+    """Record one play-along with the PoC 1 accompaniment. Returns the recording directory.
+
+    With `click`, a click on every song beat (Beat This!, cached in <run>/beats.json) is
+    played along. It goes to the playback only, like the accompaniment."""
     poc1_run_dir = Path(poc1_run_dir)
     run = load_poc1_run(poc1_run_dir)
     device = find_audio_device(device_name)
     port_index = find_midi_port(midi_port_name)
     playback, count_in = build_playback(_load_accompaniment(poc1_run_dir), SAMPLE_RATE)
+    click_info = None
+    if click:
+        from poc.beat.beats import BEATS_FILE, load_or_detect_beats
+
+        beats = load_or_detect_beats(poc1_run_dir)
+        clicks = add_beat_clicks(
+            playback, count_in, beats["beats"], beats["downbeats"], SAMPLE_RATE
+        )
+        click_info = {"beats_file": BEATS_FILE, "clicks": clicks, "gain": CLICK_GAIN}
     if max_seconds is not None:  # e.g. a short test recording
         playback = playback[:, : count_in + int(max_seconds * SAMPLE_RATE)]
     seconds = playback.shape[1] / SAMPLE_RATE
@@ -240,6 +287,7 @@ def record_play_along(
             "device": device["name"],
             "midi_port": midi_input_ports()[port_index],
             "note_map": load_note_map().to_dict(),
+            "click": click_info,
         },
     )
 
