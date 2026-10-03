@@ -5,10 +5,16 @@ description = "PoC for the AI Drum Practice Coach audio analysis pipeline"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "adtof-pytorch",
     "demucs==4.1.0",
     "julius>=0.2.3",
+    "librosa>=0.11.0",
     "numpy",
+    "pretty-midi>=0.2.11.post0",
+    "python-rtmidi>=1.5.8",
     "pyyaml",
+    "scipy>=1.17.1",
+    "sounddevice>=0.5.6",
     "soundfile",
 ]
 
@@ -22,6 +28,9 @@ dev = [
 # The PoC targets Apple Silicon Macs only. Without this, the universal lock follows
 # demucs' Intel-Mac constraint (torch<2.3) for every platform.
 environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
+[tool.uv.sources]
+adtof-pytorch = { git = "https://github.com/xavriley/ADTOF-pytorch", rev = "85c192e78f716ea0b111cc8a5ee4a8f6a3a4f8a9" }
 
 [project.scripts]
 poc = "poc.cli:main"

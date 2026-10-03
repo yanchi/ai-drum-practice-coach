@@ -17,13 +17,14 @@ uv run poc transcribe <poc1_run_dir> [--input {drum_stem,mix,accompaniment}] [--
 |---|---|---|
 | `poc1_run_dir` | (必須) | PoC 1 の run ディレクトリ |
 | `--input` | `drum_stem` | `drum_stem` = `drums.wav`、`mix` = PoC 1 の入力音声 (分離前)、`accompaniment` = `accompaniment.wav` |
+| `--thresholds` | (ADTOF の既定値) | 楽器ごとの検出の閾値 (0〜1)。例: `kick=0.12,hihat=0.12`。書かなかった楽器は既定値のまま (research R-16) |
 
 **成功時**: `<output-dir>/<transcription_id>/` に次を作り、ディレクトリの絶対パスを標準出力に出す。
 
 ```text
 transcription.json   # TranscriptionRun (DrumEvent の一覧を含む)
 events.mid           # 確認用 MIDI (General MIDI ドラム)
-check.wav            # 原曲 + 楽器ごとのクリック (Kick 150 Hz / Snare 800 Hz / HiHat 4 kHz)
+check.wav            # 原曲 + 楽器ごとのウッドブロック系の音 (Kick 400 Hz / Snare 800 Hz / HiHat 1.6 kHz)
 ```
 
 **失敗時**: run ディレクトリが不正・指定した音声がない (2)、推定中のエラー (1)。
@@ -86,6 +87,17 @@ uv run poc summarize-events [--evaluations-dir output/evaluations] [--report-dir
 | SC-009 | 手動の F1 が、同じ楽器の電子ドラムの F1 − 0.10 以上 (参考値) |
 
 SC-005 は `poc check-events <transcription_a> <transcription_b>` (イベント一覧の一致を確認) で、SC-007 は開発者の作業時間の記録で確認する。
+
+## `poc tune-thresholds`
+
+電子ドラムの評価結果を使って、楽器ごとの閾値を探索する (research R-16)。
+
+```text
+uv run poc tune-thresholds [--evaluations-dir output/evaluations] [--report-dir output/reports]
+```
+
+保存した活性値 (`activations.npy`) に対して、閾値 0.06〜0.30 (0.02 刻み) でピーク検出をやり直し、楽器ごとの F1 / Precision / Recall を出す。
+1 曲を除いた曲で閾値を選び、除いた曲で評価する (leave-one-out)。結果は `poc2_thresholds.md` に出力し、標準出力にも出す。
 
 ## `poc check-events`
 

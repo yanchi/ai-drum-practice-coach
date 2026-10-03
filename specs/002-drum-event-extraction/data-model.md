@@ -30,7 +30,7 @@
 | `transcriber` | TranscriberInfo | |
 | `events` | DrumEvent[] | 時刻順 |
 | `event_counts` | dict | 楽器ごとの数 |
-| `timings_sec` | dict | `load` / `infer` / `pick` / `write` / `total` |
+| `timings_sec` | dict | `load` (確認用 WAV のための原曲の読み込み) / `transcribe` (推定全体: 音声の読み込み・推論・ピーク検出) / `write` / `total` |
 | `peak_memory` | dict | `rss_bytes` |
 | `environment` | dict | PoC 1 と同じ項目 + `adtof_pytorch` (コミット) |
 | `warnings` | RunWarning[] | 例: `no_events` (イベントが 0 件) |
