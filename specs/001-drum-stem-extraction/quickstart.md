@@ -64,7 +64,7 @@ uv run poc separate data/songs/01_rock.m4a
 ```bash
 uv run poc separate data/songs/01_rock.m4a
 uv run poc check-repro output/runs/<1回目の run_id> output/runs/<2回目の run_id>
-# => max_abs_diff=0.0 tolerance=0.0001 result=PASS
+# => max_abs_diff=0 tolerance=0.0001 result=PASS
 ```
 
 ## 7. 集計する

@@ -15,7 +15,8 @@ def test_stopwatch_records_stages_and_total():
     assert set(result) == {"decode", "separate", "total"}
     assert result["decode"] >= 0.02
     assert result["separate"] >= 0.02
-    assert result["total"] >= result["decode"] + result["separate"]
+    # Each value is rounded to 1 ms separately, so allow that rounding error.
+    assert result["total"] >= result["decode"] + result["separate"] - 0.002
 
 
 def test_peak_rss_is_positive_bytes():

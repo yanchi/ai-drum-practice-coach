@@ -137,8 +137,8 @@ description: "Task list for PoC 1: Drum Stem Extraction"
 
 **Independent Test**: `poc separate` 後に `accompaniment.wav` があり、原曲と同じ長さで再生できる。`--no-accompaniment` では作られない
 
-- [ ] T035 [P] [US4] Write `tests/pipeline/test_run_us4.py` using `FakeSeparator`: default run writes `accompaniment.wav` (same SR / channels / samples as input, listed in `run.json` `stems` with `kind: accompaniment`); `write_accompaniment=False` writes no file and lists only drums
-- [ ] T036 [US4] Update `poc/evaluation/run.py` to write `accompaniment.wav` (32-bit float) and its `Stem` record when `write_accompaniment` is true, and wire `--no-accompaniment` in `poc/cli.py` (alignment check still uses drums + accompaniment in memory)
+- [X] T035 [P] [US4] Write `tests/pipeline/test_run_us4.py` using `FakeSeparator`: default run writes `accompaniment.wav` (same SR / channels / samples as input, listed in `run.json` `stems` with `kind: accompaniment`); `write_accompaniment=False` writes no file and lists only drums
+- [X] T036 [US4] Update `poc/evaluation/run.py` to write `accompaniment.wav` (32-bit float) and its `Stem` record when `write_accompaniment` is true, and wire `--no-accompaniment` in `poc/cli.py` (alignment check still uses drums + accompaniment in memory)
 
 **Checkpoint**: すべての User Story が単独で動作する
 
@@ -148,11 +148,11 @@ description: "Task list for PoC 1: Drum Stem Extraction"
 
 **Purpose**: 全体の品質確認と、PoC 1 の Go/No-Go 判断の材料作り
 
-- [ ] T037 [P] Update `README.md` with a short "PoC 1: Drum Stem Extraction" section linking to `specs/001-drum-stem-extraction/quickstart.md` (setup, `poc separate`, `poc summarize`)
-- [ ] T038 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest`, and `uv run pytest -m slow`; fix all failures
-- [ ] T039 Follow `specs/001-drum-stem-extraction/quickstart.md` end to end on a clean `uv sync` and fix any step that does not work as written
-- [ ] T040 Evaluate at least 5 user-owned songs of different genres (separate, fill `verdict` / `issues` in `evaluation.yaml`, run `check-repro` on one song, run `poc summarize`) — performed by the developer
-- [ ] T041 Write `docs/research/poc1-evaluation.md` from `output/reports/summary.md` and the `check-repro` result: SC-001〜SC-007 results, OK / NG per song, issues noted per instrument (especially HiHat, risk R3), processing time and memory on the M1, warnings observed, and a Go/No-Go recommendation for Human Review (do not include audio or song file paths)
+- [X] T037 [P] Update `README.md` with a short "PoC 1: Drum Stem Extraction" section linking to `specs/001-drum-stem-extraction/quickstart.md` (setup, `poc separate`, `poc summarize`)
+- [X] T038 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest`, and `uv run pytest -m slow`; fix all failures
+- [X] T039 Follow `specs/001-drum-stem-extraction/quickstart.md` end to end on a clean `uv sync` and fix any step that does not work as written
+- [X] T040 Evaluate at least 5 user-owned songs of different genres (separate, fill `verdict` / `issues` in `evaluation.yaml`, run `check-repro` on one song, run `poc summarize`) — performed by the developer
+- [X] T041 Write `docs/research/poc1-evaluation.md` from `output/reports/summary.md` and the `check-repro` result: SC-001〜SC-007 results, OK / NG per song, issues noted per instrument (especially HiHat, risk R3), processing time and memory on the M1, warnings observed, and a Go/No-Go recommendation for Human Review (do not include audio or song file paths)
 
 ---
 

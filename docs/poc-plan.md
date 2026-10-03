@@ -234,7 +234,7 @@ CLAUDE.md の想定構成からの差分: `poc/separation/` と `poc/mapping/` �
 | 1 | 環境構築: ffmpeg 導入、`pyproject.toml` (uv, Python 3.11)、ruff / pytest | 動作する空のパッケージ | — |
 | 2 | PoC 1 plan / tasks (`specs/001-drum-stem-extraction/`) | plan.md / tasks.md | Human Review |
 | 3 | PoC 1 実装: audio (decode・DRM 判定) → separation → 実行記録 → 評価シートと集計 | Drum Stem、実行記録 | Lint / Test |
-| 4 | PoC 1 評価: 市販楽曲 5 曲以上で SC-001〜SC-007 を確認 | 評価レポート (`docs/research/`) | **Go/No-Go** |
+| 4 | PoC 1 評価: 市販楽曲 5 曲以上で SC-001〜SC-007 を確認 | [評価レポート](research/poc1-evaluation.md) | **Go/No-Go** — 2026-10-04 Go |
 | 5 | PoC 2 spec〜plan。確認区間と手動アノテーションの形式を決め、アノテーションする | spec / plan、Ground Truth CSV | Human Review |
 | 6 | PoC 2 実装: transcription adapter → DrumEvent JSON / MIDI → 評価 (P/R/F1・誤差) | Drum Events、評価レポート | **Go/No-Go** |
 | 7 | PoC 3 spec〜plan | spec / plan | Human Review |
