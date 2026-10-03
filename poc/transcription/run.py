@@ -87,7 +87,8 @@ def run_transcription(
     events = sorted(events, key=lambda e: e.time_sec)
 
     now = now or datetime.now().astimezone()
-    transcription_id = f"{now:%Y%m%d-%H%M%S}_{audio_sha[:8]}"
+    # The kind keeps the drum stem and the mix of one run apart even within the same second.
+    transcription_id = f"{now:%Y%m%d-%H%M%S}_{kind}_{audio_sha[:8]}"
     final_dir = output_dir / transcription_id
     partial_dir = output_dir / f"{transcription_id}.partial"
     if final_dir.exists() or partial_dir.exists():

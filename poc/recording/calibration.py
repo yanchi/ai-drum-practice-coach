@@ -21,7 +21,10 @@ SEARCH_AFTER_MS = 100.0
 BASELINE_MS = 20.0  # silence before the search window
 ISOLATION_BEFORE_SEC = 0.3
 ISOLATION_AFTER_SEC = 0.15
-ONSET_FRACTION = 0.15  # onset = last crossing of baseline + 15% of the rise before the peak
+# Onset = last crossing of baseline + 2% of the rise before the peak. With 15%, the kick and
+# snare head (whose low body peaks late) read about 10 ms later than the rim and hi-hat;
+# at 5% or less all TD-17 pads agree within 2 ms (research R-06).
+ONSET_FRACTION = 0.02
 OUTLIER_MS = 3.0
 MIN_HITS = 3
 MAX_STD_MS = 1.0  # SC-008

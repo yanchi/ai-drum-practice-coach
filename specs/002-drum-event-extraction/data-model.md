@@ -24,7 +24,7 @@
 | Field | Type | Rule |
 |---|---|---|
 | `schema_version` | int | 1 |
-| `transcription_id` | str | `<YYYYMMDD-HHMMSS>_<入力音声の sha256 先頭 8 文字>` |
+| `transcription_id` | str | `<YYYYMMDD-HHMMSS>_<入力の種類>_<入力音声の sha256 先頭 8 文字>` |
 | `created_at` | str | ISO 8601 |
 | `input` | TranscriptionInput | |
 | `transcriber` | TranscriberInfo | |
@@ -99,7 +99,7 @@
 | `time_sec` | float | 評価用の曲 (または原曲) の時間軸 |
 | `instrument` | `"kick"` \| `"snare"` \| `"hihat"` | 対象外のパッドは含めない |
 | `velocity` | int \| null | 手動は null |
-| `ghost` | bool | MIDI: Snare・HiHat で velocity < 40。手動: ラベル末尾 `g` |
+| `ghost` | bool | スネアのみ。MIDI: velocity < 40。手動: ラベル `sg` (2026-10-04 変更: ハイハットには適用しない) |
 
 ### MidiAudioAlignment
 

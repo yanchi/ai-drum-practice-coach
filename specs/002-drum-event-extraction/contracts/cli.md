@@ -63,7 +63,7 @@ uv run poc evaluate --annotation <annotation.yaml> [--tolerance-ms 50]
 - `<recording_dir>` の場合 (電子ドラム) は次をまとめて行う:
   1. 最新のキャリブレーション (`--calibration` で指定も可) のパッドごとのずれで MIDI の時刻を補正し、同じ楽器の 40 ms 以内の 2 つ目のノートを除く。キャリブレーションがない場合は終了コード 2
   2. 評価用の曲 (`mix.wav`) と `groundtruth.json` を recording ディレクトリに作る
-  3. 評価用の曲を PoC 1 の分離 (`poc separate` と同じ処理) にかける
+  3. 評価用の曲を PoC 1 の分離 (`poc separate` と同じ処理) にかける (出力は PoC 1 の集計と混ざらないよう `output/eval_runs/` に置く)
   4. `drum_stem` / `mix` / 元の伴奏の `accompaniment` の 3 つで推定する
   5. 対応付けと指標の計算をして、`output/evaluations/<evaluation_id>/evaluation.json` を作る
 - `--annotation` の場合 (手動) は、PoC 1 の run の `drum_stem` (と `mix`) の推定結果と比べる

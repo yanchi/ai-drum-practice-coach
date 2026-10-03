@@ -82,34 +82,18 @@ class AdtofTranscriber:
             self._model = model
         return self._model
 
-    def transcribe(self, audio_path: Path) -> tuple[list[DrumEvent], TranscriberInfo]:
+    def activations(self, audio_path: Path) -> np.ndarray:
+        """Model output: (frames at FPS, 5 classes in LABEL_TO_INSTRUMENT order), 0-1."""
         import torch
-        from adtof_pytorch import LABELS_5, load_audio_for_model
-        from adtof_pytorch.post_processing import NotePeakPickingProcessor
+        from adtof_pytorch import load_audio_for_model
 
         model = self._load_model()
         features = load_audio_for_model(str(audio_path))
         with torch.no_grad():
-            activations = model(features).cpu().numpy()[0]  # (frames, classes)
+            return model(features).cpu().numpy()[0]
 
-        events: list[DrumEvent] = []
-        for index, label in enumerate(LABELS_5):
-            column = activations[:, index]
-            picker = NotePeakPickingProcessor(
-                threshold=self.thresholds[LABEL_TO_INSTRUMENT[label]], fps=FPS, **PEAK_PICKING
-            )
-            for time_sec, _ in picker.process(column):
-                frame = min(len(column) - 1, int(round(time_sec * FPS)))
-                strength = float(np.clip(column[frame], 0.0, 1.0))
-                events.append(
-                    DrumEvent(
-                        round(float(time_sec), 4), LABEL_TO_INSTRUMENT[label], round(strength, 4)
-                    )
-                )
-        order = list(LABEL_TO_INSTRUMENT.values())
-        events.sort(key=lambda e: (e.time_sec, order.index(e.instrument)))
-
-        info = TranscriberInfo(
+    def info(self) -> TranscriberInfo:
+        return TranscriberInfo(
             method="adtof-pytorch",
             version=f"{version('adtof-pytorch')}+{ADTOF_COMMIT[:7]}",
             params={
@@ -119,4 +103,26 @@ class AdtofTranscriber:
             },
             device="cpu",
         )
-        return events, info
+
+    def transcribe(self, audio_path: Path) -> tuple[list[DrumEvent], TranscriberInfo]:
+        return events_from_activations(self.activations(audio_path), self.thresholds), self.info()
+
+
+def events_from_activations(
+    activations: np.ndarray, thresholds: dict[str, float]
+) -> list[DrumEvent]:
+    """Peak picking per class (same parameters as adtof_pytorch.PeakPicker); strength is the
+    activation at the peak frame."""
+    from adtof_pytorch.post_processing import NotePeakPickingProcessor
+
+    events: list[DrumEvent] = []
+    for index, instrument in enumerate(LABEL_TO_INSTRUMENT.values()):
+        column = activations[:, index]
+        picker = NotePeakPickingProcessor(threshold=thresholds[instrument], fps=FPS, **PEAK_PICKING)
+        for time_sec, _ in picker.process(column):
+            frame = min(len(column) - 1, int(round(time_sec * FPS)))
+            strength = float(np.clip(column[frame], 0.0, 1.0))
+            events.append(DrumEvent(round(float(time_sec), 4), instrument, round(strength, 4)))
+    order = list(LABEL_TO_INSTRUMENT.values())
+    events.sort(key=lambda e: (e.time_sec, order.index(e.instrument)))
+    return events

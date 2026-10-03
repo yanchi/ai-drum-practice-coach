@@ -48,7 +48,7 @@ uv run poc evaluate output/recordings/<recording_id>
 ## 3. 市販曲の手動アノテーション (1〜2 曲)
 
 1. Sonic Visualiser などで PoC 1 の原曲を開き、Verse・Chorus・Fill 前後の 4 小節ずつ (計 3 区間) で打撃に印を付ける
-   (ラベル: `k` / `s` / `h`、ゴーストノートは `sg` / `hg`)
+   (ラベル: `k` / `s` / `h`、スネアのゴーストノートは `sg`)
 2. 時刻とラベルを CSV で書き出し、`data/annotations/<名前>/hits.csv` に置く
 3. 同じフォルダに `annotation.yaml` を書く:
 

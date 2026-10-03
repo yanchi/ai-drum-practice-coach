@@ -224,14 +224,25 @@ class GroundTruthHit:
 
 @dataclass(frozen=True)
 class MidiAudioAlignment:
-    offset_ms: float
-    residual_std_ms: float
-    matched_ratio: float
+    """How TD-17 MIDI times were turned into ground-truth times (research R-06, R-10)."""
+
+    calibration_id: str
+    note_offsets_ms: dict[int, float]  # MIDI time + offset = audio time, per note used
+    max_std_ms: float  # calibration spread (SC-008)
+    dropped_double_triggers: int
     stream_latency_ms: float
     drum_gain_db: float
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["note_offsets_ms"] = {str(k): v for k, v in self.note_offsets_ms.items()}
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MidiAudioAlignment:
+        return cls(
+            **{**data, "note_offsets_ms": {int(k): v for k, v in data["note_offsets_ms"].items()}}
+        )
 
 
 @dataclass(frozen=True)
@@ -263,7 +274,7 @@ class GroundTruth:
             target_id=data["target_id"],
             regions=[(float(a), float(b)) for a, b in data["regions"]],
             hits=[GroundTruthHit(**h) for h in data["hits"]],
-            alignment=MidiAudioAlignment(**alignment) if alignment else None,
+            alignment=MidiAudioAlignment.from_dict(alignment) if alignment else None,
         )
 
 

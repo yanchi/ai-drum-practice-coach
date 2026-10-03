@@ -76,16 +76,25 @@ def test_drop_double_triggers(note_map):
         {"time_sec": 1.038, "note": 36, "velocity": 26},  # beater bounce: dropped
         {"time_sec": 1.010, "note": 42, "velocity": 50},  # another instrument: kept
         {"time_sec": 1.100, "note": 36, "velocity": 40},  # 100 ms later: a real hit
+        {"time_sec": 1.155, "note": 36, "velocity": 20},  # 55 ms, half velocity: bounce
+        {"time_sec": 1.300, "note": 36, "velocity": 40},
+        {"time_sec": 1.360, "note": 36, "velocity": 38},  # 60 ms but as loud: a real double
+        {"time_sec": 3.000, "note": 38, "velocity": 82},
+        {"time_sec": 3.050, "note": 38, "velocity": 49},  # bounce
+        {"time_sec": 3.087, "note": 38, "velocity": 40},  # 37 ms after the bounce: same chain
         {"time_sec": 2.000, "note": 38, "velocity": 50},
         {"time_sec": 2.020, "note": 40, "velocity": 30},  # snare head then rim: same instrument
         {"time_sec": 2.010, "note": 48, "velocity": 50},  # tom: not evaluated, kept
     ]
     kept, dropped = drop_double_triggers(notes, note_map)
-    assert dropped == 2
+    assert dropped == 5
     assert [(n["time_sec"], n["note"]) for n in kept] == [
         (1.0, 36),
         (1.01, 42),
         (1.1, 36),
+        (1.3, 36),
+        (1.36, 36),
         (2.0, 38),
         (2.01, 48),
+        (3.0, 38),
     ]

@@ -101,12 +101,74 @@ def _cmd_record(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_evaluation(out: Path) -> None:
+    data = json.loads((out / "evaluation.json").read_text())
+    print(f"evaluation: {out.resolve()}", file=sys.stderr)
+    for kind, result in data["results"].items():
+        print(f"[{kind}]  instrument  P      R      F1     median|p95 ms", file=sys.stderr)
+        for inst, m in result["metrics"].items():
+            t = m["timing_ms"]
+            cells = [m["precision"], m["recall"], m["f1"]]
+            text = "  ".join("  -  " if v is None else f"{v:.3f}" for v in cells)
+            timing = "-" if t["median_abs"] is None else f"{t['median_abs']:.1f}|{t['p95_abs']:.1f}"
+            print(f"  {inst:8s}  {text}  {timing}", file=sys.stderr)
+    if data.get("residual_drum_hits"):
+        print(f"residual original drums: {data['residual_drum_hits']['counts']}", file=sys.stderr)
+
+
 def _cmd_evaluate(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.errors import UserInputError
+    from poc.evaluation.events_eval import evaluate_annotation, evaluate_recording
+    from poc.transcription.adtof_adapter import AdtofTranscriber, parse_thresholds
+
+    transcriber = AdtofTranscriber(thresholds=parse_thresholds(args.thresholds))
+    if args.annotation:
+        out = evaluate_annotation(
+            args.annotation, transcriber=transcriber, tolerance_ms=args.tolerance_ms
+        )
+    elif args.recording_dir:
+        from poc.separation.demucs_adapter import DemucsSeparator
+
+        out = evaluate_recording(
+            args.recording_dir,
+            separator=DemucsSeparator(),
+            transcriber=transcriber,
+            calibration_dir=args.calibration,
+            tolerance_ms=args.tolerance_ms,
+            ghost_velocity=args.ghost_velocity,
+        )
+    else:
+        raise UserInputError("give a recording directory or --annotation")
+    _print_evaluation(out)
+    print(out.resolve())
+    return 0
 
 
 def _cmd_summarize_events(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.evaluation.events_summary import summarize_events
+
+    _, markdown = summarize_events(args.evaluations_dir, args.report_dir)
+    print(markdown, end="")
+    return 0
+
+
+def _cmd_tune_thresholds(args: argparse.Namespace) -> int:
+    from poc.evaluation.tuning import load_songs, report_markdown, tune
+    from poc.transcription.adtof_adapter import AdtofTranscriber, events_from_activations
+
+    transcriber = AdtofTranscriber()
+    songs = load_songs(args.evaluations_dir, args.recordings_dir, transcriber.activations)
+
+    def events_fn(activations, thresholds):
+        return events_from_activations(activations, {**transcriber.thresholds, **thresholds})
+
+    report = tune(songs, events_fn)
+    markdown = report_markdown(report)
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    (args.report_dir / "poc2_thresholds.md").write_text(markdown)
+    (args.report_dir / "poc2_thresholds.json").write_text(json.dumps(report, indent=1) + "\n")
+    print(markdown, end="")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -161,12 +223,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--annotation", type=Path)
     p.add_argument("--tolerance-ms", type=float, default=50.0)
     p.add_argument("--ghost-velocity", type=int, default=40)
+    p.add_argument("--calibration", type=Path, help="calibration directory (default: latest)")
+    p.add_argument("--thresholds", default="", help="e.g. kick=0.12,hihat=0.12")
     p.set_defaults(func=_cmd_evaluate)
 
     p = sub.add_parser("summarize-events", help="aggregate PoC 2 evaluations")
     p.add_argument("--evaluations-dir", type=Path, default=Path("output/evaluations"))
     p.add_argument("--report-dir", type=Path, default=Path("output/reports"))
     p.set_defaults(func=_cmd_summarize_events)
+
+    p = sub.add_parser("tune-thresholds", help="choose detection thresholds with TD-17 data")
+    p.add_argument("--evaluations-dir", type=Path, default=Path("output/evaluations"))
+    p.add_argument("--recordings-dir", type=Path, default=Path("output/recordings"))
+    p.add_argument("--report-dir", type=Path, default=Path("output/reports"))
+    p.set_defaults(func=_cmd_tune_thresholds)
 
     return parser
 

@@ -50,7 +50,7 @@ def test_input_selection(tmp_path, poc1_run, kind, expected):
 def test_outputs(tmp_path, poc1_run):
     out = run_transcription(poc1_run, "drum_stem", tmp_path / "t", FakeTranscriber(EVENTS))
 
-    assert re.fullmatch(r"\d{8}-\d{6}_[0-9a-f]{8}", out.name)
+    assert re.fullmatch(r"\d{8}-\d{6}_drum_stem_[0-9a-f]{8}", out.name)
     assert {p.name for p in out.iterdir()} == {"transcription.json", "events.mid", "check.wav"}
     data = json.loads((out / "transcription.json").read_text())
     assert data["schema_version"] == 1
