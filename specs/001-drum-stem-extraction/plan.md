@@ -9,7 +9,7 @@
 ユーザー所有の楽曲 1 曲から、Demucs v4 (`htdemucs`) で Drum Stem と Accompaniment Stem を作る CLI を Python で実装する。
 デコードと DRM 判定は ffmpeg / ffprobe で行い、stem は原曲と同じサンプルレート・チャンネル数・サンプル数の 32-bit float WAV で保存する。
 実行ごとに入力ハッシュ・モデル・パラメータ・処理時間・最大メモリ・時間ずれの検証結果 (stem の和と原曲の相互相関) を `run.json` に記録する。
-開発者が記入する YAML の評価シート (聴感評価 3 項目、確認区間 3 つの打撃数) を集計し、SC-001〜SC-007 を判定するレポートを出力する。
+開発者が記入する YAML の評価シート (1 曲ごとの OK / NG と気になった楽器・問題) を集計し、SC-001〜SC-007 を判定するレポートを出力する (2026-10-04 に評価方法を簡素化)。
 再現性のため Demucs のランダムな時間シフトは無効化 (`shifts=0`) する。
 
 ## Technical Context
@@ -35,7 +35,7 @@ Constitution v1.0.1 に対する確認。Phase 1 の設計後に再確認した�
 | 原則 / ゲート | 確認内容 | Phase 0 前 | Phase 1 後 |
 |---|---|---|---|
 | I. Hypothesis-First, Measurable PoC | 検証する仮説 (spec の目的)、定量基準 (SC-001〜007)、再現可能な記録 (`run.json`: 入力ハッシュ・モデル・パラメータ・環境) | PASS | PASS — `summarize` が SC を自動判定し、`check-repro` で再現性を確認する |
-| II. Reference-Comparable Accuracy | 完璧な分離を目標にせず、後続の打撃抽出に使えるかで判定 | PASS | PASS — 合否は打撃確認率と聴感評価で決め、`artifacts` は記録のみ |
+| II. Reference-Comparable Accuracy | 完璧な分離を目標にせず、後続の打撃抽出に使えるかで判定 | PASS | PASS — 合否は「PoC 2 の打撃検出に使えるか」の OK / NG で決める。精度の定量評価は PoC 2 で行う |
 | III. Separated Pipeline & Replaceable Models | Decode / Separation / Evaluation の分離。Demucs 固有の型を Domain Model に出さない | PASS | PASS — `poc/separation/demucs_adapter.py` の中だけで Demucs を扱う。`Separator` Protocol とテスト用の Fake で差し替えを確認する |
 | IV. Copyright, DRM & Privacy | DRM の回避をしない、ユーザー所有の音源のみ、著作物をコミットしない、外部に送信しない | PASS | PASS — DRM は検出して拒否する (復号は試みない)。出力は `output/` (gitignore)。テストは合成信号のみ |
 | V. Simplicity & Scope Discipline | UI・Backend・LLM なし、最小限の依存 | PASS | PASS — 新しい Python 依存は demucs / numpy / soundfile のみ (pyyaml / julius は demucs 経由で入る)。評価は YAML + CLI |

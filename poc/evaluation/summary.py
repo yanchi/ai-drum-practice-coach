@@ -1,22 +1,20 @@
-"""`poc summarize`: aggregate evaluation sheets and judge SC-001 to SC-007."""
+"""`poc summarize`: aggregate evaluation sheets and judge SC-001, SC-002, SC-004, SC-005, SC-007."""
 
 from __future__ import annotations
 
 import csv
 import json
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
 
-from poc.domain import INSTRUMENTS, SCHEMA_VERSION, SeparationEvaluation
+from poc.domain import ISSUE_CHOICES, SCHEMA_VERSION, SeparationEvaluation
 from poc.errors import UserInputError
 from poc.evaluation.sheet import load_sheet
 
 MIN_SONGS = 5  # SC-001
-MIN_HIT_RATE = 0.90  # SC-002
-MIN_CLARITY = 4.0  # SC-003
-MIN_BLEED = 3.0  # SC-003
 MAX_LAG_MS = 1.0  # SC-004
 MAX_SEC_FOR_4MIN = 600.0  # SC-005
 REFERENCE_SONG_SEC = 240.0
@@ -40,13 +38,8 @@ class SongRow:
     run_id: str
     song_label: str
     genre: str
-    drum_clarity: int
-    bleed: int
-    artifacts: int
-    hit_rate: float | None
-    hit_rate_kick: float | None
-    hit_rate_snare: float | None
-    hit_rate_hihat: float | None
+    verdict: str
+    issues: str  # ";"-separated
     alignment_lag_ms: float
     total_sec: float | None
     peak_rss_mb: float | None
@@ -70,19 +63,7 @@ class SummaryResult:
     markdown: str
 
 
-def _ratio(detected: int, original: int) -> float | None:
-    return detected / original if original else None
-
-
-def _hit_rates(sheet: SeparationEvaluation) -> dict[str, float | None]:
-    totals = {inst: [0, 0] for inst in INSTRUMENTS}
-    for section in sheet.sections:
-        for inst in INSTRUMENTS:
-            totals[inst][0] += section.counts[inst].detected
-            totals[inst][1] += section.counts[inst].original
-    rates = {inst: _ratio(*totals[inst]) for inst in INSTRUMENTS}
-    rates["all"] = _ratio(sum(t[0] for t in totals.values()), sum(t[1] for t in totals.values()))
-    return rates
+Evaluated = tuple[dict[str, Any], SeparationEvaluation, SongRow]
 
 
 def _has_field(run: dict[str, Any], keys: tuple[str, ...]) -> bool:
@@ -118,20 +99,11 @@ def _load_runs(runs_dir: Path) -> list[dict[str, Any]]:
     return runs
 
 
-def _fmt_rate(rate: float | None) -> str:
-    return "-" if rate is None else f"{rate * 100:.1f}"
-
-
-def _judge(
-    evaluated: list[tuple[dict[str, Any], SeparationEvaluation, SongRow]],
-    all_runs: list[dict[str, Any]],
-) -> list[Criterion]:
+def _judge(evaluated: list[Evaluated], all_runs: list[dict[str, Any]]) -> list[Criterion]:
     rows = [row for _, _, row in evaluated]
     songs = {run["song"]["sha256"] for run, _, _ in evaluated}
     enough = len(songs) >= MIN_SONGS
-    criteria = []
-
-    criteria.append(
+    criteria = [
         Criterion(
             "SC-001",
             "Generation success",
@@ -139,37 +111,17 @@ def _judge(
             f"{len(songs)} songs evaluated",
             "PASS" if enough else "INSUFFICIENT",
         )
-    )
+    ]
 
-    rates = [r.hit_rate for r in rows if r.hit_rate is not None]
-    detail = " / ".join(f"{inst} {_fmt_rate(_pooled(evaluated, inst))}" for inst in INSTRUMENTS)
-    if rates:
-        result = f"min {min(rates) * 100:.1f}% ({detail})"
-        status = "PASS" if min(rates) >= MIN_HIT_RATE else "FAIL"
+    ng = [r.song_label for r in rows if r.verdict == "ng"]
+    if ng:
+        sc002 = "FAIL"
     else:
-        result, status = "no hits counted", "FAIL"
-    criteria.append(
-        Criterion(
-            "SC-002",
-            "Hit rate (excl. ghost notes)",
-            f"≥ {MIN_HIT_RATE:.0%} in every song",
-            result,
-            status if enough else "INSUFFICIENT",
-        )
-    )
-
-    clarity = sum(r.drum_clarity for r in rows) / len(rows)
-    bleed = sum(r.bleed for r in rows) / len(rows)
-    clarity_ok, bleed_ok = clarity >= MIN_CLARITY, bleed >= MIN_BLEED
-    criteria.append(
-        Criterion(
-            "SC-003",
-            "Listening (mean)",
-            f"clarity ≥ {MIN_CLARITY}, bleed ≥ {MIN_BLEED}",
-            f"clarity {clarity:.1f} / bleed {bleed:.1f}",
-            ("PASS" if clarity_ok and bleed_ok else "FAIL") if enough else "INSUFFICIENT",
-        )
-    )
+        sc002 = "PASS" if enough else "INSUFFICIENT"
+    result = f"{len(rows) - len(ng)}/{len(rows)} OK"
+    if ng:
+        result += f" (NG: {', '.join(ng)})"
+    criteria.append(Criterion("SC-002", "Developer verdict", "OK in every song", result, sc002))
 
     max_lag = max(abs(r.alignment_lag_ms) for r in rows)
     aligned = all(run["alignment"].get("passed") for run, _, _ in evaluated)
@@ -215,20 +167,11 @@ def _judge(
     return criteria
 
 
-def _pooled(evaluated: list[tuple[dict[str, Any], SeparationEvaluation, SongRow]], inst: str):
-    detected = sum(s.counts[inst].detected for _, sheet, _ in evaluated for s in sheet.sections)
-    original = sum(s.counts[inst].original for _, sheet, _ in evaluated for s in sheet.sections)
-    return _ratio(detected, original)
-
-
-def _markdown(
-    criteria: list[Criterion],
-    evaluated: list[tuple[dict[str, Any], SeparationEvaluation, SongRow]],
-    today: date,
-) -> str:
+def _markdown(criteria: list[Criterion], evaluated: list[Evaluated], today: date) -> str:
     rows = [row for _, _, row in evaluated]
-    genres = ", ".join(sorted({r.genre for r in rows}))
-    artifacts = sum(r.artifacts for r in rows) / len(rows)
+    genres = ", ".join(sorted({r.genre for r in rows if r.genre})) or "-"
+    issues = Counter(i for _, sheet, _ in evaluated for i in sheet.issues)
+    issue_text = ", ".join(f"{i} {issues[i]}" for i in ISSUE_CHOICES if issues[i]) or "none"
     lines = [
         f"# PoC 1 Evaluation Summary ({today.isoformat()})",
         "",
@@ -238,7 +181,7 @@ def _markdown(
         "|---|---|---|---|",
         *(f"| {c.criterion} {c.label} | {c.target} | {c.result} | {c.status} |" for c in criteria),
         "",
-        f"Artifacts (record only): mean {artifacts:.1f}",
+        f"Issues noted: {issue_text}",
         "",
         "SC-006 (reproducibility) is checked separately with `poc check-repro`.",
         "",
@@ -252,7 +195,7 @@ def summarize(runs_dir: Path, report_dir: Path, today: date | None = None) -> Su
         raise UserInputError(f"runs directory not found: {runs_dir}")
 
     all_runs = _load_runs(runs_dir)
-    evaluated: list[tuple[dict[str, Any], SeparationEvaluation, SongRow]] = []
+    evaluated: list[Evaluated] = []
     incomplete: list[str] = []
     for run in all_runs:
         sheet_path = run["_dir"] / "evaluation.yaml"
@@ -260,19 +203,13 @@ def summarize(runs_dir: Path, report_dir: Path, today: date | None = None) -> Su
         if sheet is None:
             incomplete.append(run["run_id"])
             continue
-        rates = _hit_rates(sheet)
         rss = (run.get("peak_memory") or {}).get("rss_bytes")
         row = SongRow(
             run_id=run["run_id"],
             song_label=sheet.song_label,
             genre=sheet.genre,
-            drum_clarity=sheet.listening.drum_clarity,
-            bleed=sheet.listening.bleed,
-            artifacts=sheet.listening.artifacts,
-            hit_rate=rates["all"],
-            hit_rate_kick=rates["kick"],
-            hit_rate_snare=rates["snare"],
-            hit_rate_hihat=rates["hihat"],
+            verdict=sheet.verdict,
+            issues=";".join(sheet.issues),
             alignment_lag_ms=run["alignment"]["lag_ms"],
             total_sec=(run.get("timings_sec") or {}).get("total"),
             peak_rss_mb=rss / 1024**2 if rss is not None else None,

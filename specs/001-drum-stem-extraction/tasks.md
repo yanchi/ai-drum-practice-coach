@@ -91,16 +91,18 @@ description: "Task list for PoC 1: Drum Stem Extraction"
 
 ### Tests for User Story 2
 
-- [X] T021 [P] [US2] Write `tests/unit/test_sheet.py`: generated template text matches the YAML in `contracts/files.md` for a given run_id and loads back with all `null` values; a sheet with any `null` is reported as incomplete; validation errors (include file name and field) for `drum_clarity: 6`, `detected > original`, negative counts, `end_sec <= start_sec`, not exactly 3 sections, duplicate labels, unsupported `schema_version`
-- [X] T022 [P] [US2] Write `tests/unit/test_summary.py`: hit rate per section, per instrument and per song (Σdetected/Σoriginal); means of `drum_clarity` / `bleed` / `artifacts`; SC-001 needs ≥5 evaluated songs (otherwise status `INSUFFICIENT`); SC-002 ≥ 0.90; SC-003 clarity ≥ 4.0 and bleed ≥ 3.0; SC-004 uses `run.json` `alignment.lag_ms` (all ≤ 1 ms); SC-005 normalizes `timings_sec.total / duration_sec * 240` and reports `N/A` when `timings_sec` is missing; SC-007 flags runs missing required `run.json` keys
+- [X] T021 [P] [US2] Write `tests/unit/test_sheet.py`: generated template text matches the YAML in `contracts/files.md` for a given run_id and loads back with all `null` values; a sheet with any `null` is reported as incomplete; validation errors (include file name and field) for `drum_clarity: 6`, `detected > original`, negative counts, `end_sec <= start_sec`, not exactly 3 sections, duplicate labels, unsupported `schema_version` *(superseded by T042)*
+- [X] T022 [P] [US2] Write `tests/unit/test_summary.py`: hit rate per section, per instrument and per song (Σdetected/Σoriginal); means of `drum_clarity` / `bleed` / `artifacts`; SC-001 needs ≥5 evaluated songs (otherwise status `INSUFFICIENT`); SC-002 ≥ 0.90; SC-003 clarity ≥ 4.0 and bleed ≥ 3.0; SC-004 uses `run.json` `alignment.lag_ms` (all ≤ 1 ms); SC-005 normalizes `timings_sec.total / duration_sec * 240` and reports `N/A` when `timings_sec` is missing; SC-007 flags runs missing required `run.json` keys *(superseded by T042)*
 
 ### Implementation for User Story 2
 
-- [X] T023 [P] [US2] Add `ListeningRating`, `CheckSection`, `SeparationEvaluation` dataclasses to `poc/domain.py` (data-model.md)
+- [X] T023 [P] [US2] Add `ListeningRating`, `CheckSection`, `SeparationEvaluation` dataclasses to `poc/domain.py` (data-model.md) *(superseded by T042)*
 - [X] T024 [US2] Implement `poc/evaluation/sheet.py`: `render_template(run_id) -> str` producing exactly the template in `contracts/files.md` (including the instruction comments), `load_sheet(path) -> SeparationEvaluation | None` (None when incomplete) and validation raising `SheetValidationError(UserInputError)` with file and field names
 - [X] T025 [US2] Update `poc/evaluation/run.py` to write `evaluation.yaml` (from `render_template`) into the run directory before the rename
 - [X] T026 [US2] Implement `poc/evaluation/summary.py`: scan `<runs_dir>/*/run.json` and `evaluation.yaml`, skip incomplete sheets (list their run_ids on stderr), compute per-song rows and SC-001〜SC-005 / SC-007 statuses (`PASS` / `FAIL` / `INSUFFICIENT` / `N/A`), write `summary.csv` (columns from data-model.md `EvaluationSummary`) and `summary.md` (format in `contracts/files.md`); raise `UserInputError` when no completed sheet exists
 - [X] T027 [US2] Wire `summarize` in `poc/cli.py` (`--runs-dir`, `--report-dir`), printing `summary.md` to stdout
+
+- [X] T042 [US2] (2026-10-04 spec change) Simplify the evaluation sheet to schema_version 2 (`verdict` ok/ng, `issues`, `song_label` prefilled from the file name) in `poc/domain.py`, `poc/evaluation/sheet.py`, `poc/evaluation/summary.py`, `poc/evaluation/run.py`; drop SC-003 and hit counting; update `tests/unit/test_sheet.py`, `tests/unit/test_summary.py`, `tests/pipeline/test_run_us1.py`, and the design docs (`data-model.md`, `research.md` R-13, `contracts/`, `quickstart.md`)
 
 **Checkpoint**: US1 + US2 で、分離から評価・集計まで一通りできる
 
@@ -149,8 +151,8 @@ description: "Task list for PoC 1: Drum Stem Extraction"
 - [ ] T037 [P] Update `README.md` with a short "PoC 1: Drum Stem Extraction" section linking to `specs/001-drum-stem-extraction/quickstart.md` (setup, `poc separate`, `poc summarize`)
 - [ ] T038 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest`, and `uv run pytest -m slow`; fix all failures
 - [ ] T039 Follow `specs/001-drum-stem-extraction/quickstart.md` end to end on a clean `uv sync` and fix any step that does not work as written
-- [ ] T040 Evaluate at least 5 user-owned songs of different genres (separate, fill `evaluation.yaml`, run `check-repro` on one song, run `poc summarize`) — performed by the developer
-- [ ] T041 Write `docs/research/poc1-evaluation.md` from `output/reports/summary.md` and the `check-repro` result: SC-001〜SC-007 results, per-instrument hit rates (especially HiHat, risk R3), processing time and memory on the M1, warnings observed, ghost note notes, and a Go/No-Go recommendation for Human Review (do not include audio or song file paths)
+- [ ] T040 Evaluate at least 5 user-owned songs of different genres (separate, fill `verdict` / `issues` in `evaluation.yaml`, run `check-repro` on one song, run `poc summarize`) — performed by the developer
+- [ ] T041 Write `docs/research/poc1-evaluation.md` from `output/reports/summary.md` and the `check-repro` result: SC-001〜SC-007 results, OK / NG per song, issues noted per instrument (especially HiHat, risk R3), processing time and memory on the M1, warnings observed, and a Go/No-Go recommendation for Human Review (do not include audio or song file paths)
 
 ---
 

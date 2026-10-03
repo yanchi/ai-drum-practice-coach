@@ -44,7 +44,7 @@
 |---|---|---|
 | PoC 1 | Drum Stem / Accompaniment Stem | WAV (非圧縮, 原曲と同じ長さ・時間軸) |
 | PoC 1 | 実行記録 (Separation Run) | JSON |
-| PoC 1 | 聴感評価・打撃確認の記録 | 開発者が記入する CSV、集計結果 CSV |
+| PoC 1 | 聴感評価の記録 (OK / NG と気になった楽器) | 開発者が記入する YAML、集計結果 CSV / Markdown |
 | PoC 2 | Drum Events (時刻・楽器・強さ) | JSON (+ 確認用 MIDI) |
 | PoC 3 | BeatGrid (beat / downbeat 時刻、推定 BPM・拍子) と Bar / Beat 付き Drum Events | JSON |
 
@@ -174,13 +174,13 @@ CLAUDE.md の想定構成からの差分: `poc/separation/` と `poc/mapping/` �
 [PoC 1 spec](../specs/001-drum-stem-extraction/spec.md) に従う。要点:
 
 - 評価セット: ジャンルの異なる市販楽曲 5 曲以上
-- 聴感評価 (3 項目 × 5 段階) と、確認区間 (4 小節 × 3 区間) での打撃確認率 (ゴーストノートを除く)
+- 聴感評価: 1 曲ごとに「PoC 2 の打撃検出に使えるか」の OK / NG と、気になった楽器・問題のメモ (2026-10-04 に簡素化。打撃の精度は PoC 2 で測る)
 - 時間ずれ 1ms 以下 (SC-004) の検証: **Drum Stem + Accompaniment Stem の和と原曲の相互相関のピーク位置が 0 サンプルであること**、および原曲と Stem の長さの一致で確認する
 - 処理時間・最大メモリを実行記録に残す
 
 ### 7.2 PoC 2: Drum Events
 
-- **Ground Truth**: PoC 1 の確認区間 (1 曲 4 小節 × 3 区間) に対し、開発者が打撃時刻と楽器を手動アノテーションする。
+- **Ground Truth**: 評価曲ごとに確認区間 (例: 4 小節 × 3 区間。具体的な量は PoC 2 の spec で決める) を選び、開発者が打撃時刻と楽器を手動アノテーションする。
   アノテーションには波形・スペクトログラムを表示できる外部ツール (例: Sonic Visualiser。リポジトリの依存にはしない) を使い、CSV で書き出して `data/` に置く。
   補助として、電子ドラムで録音した自作曲の MIDI (完全な正解) を追加できる。
 - **マッチング**: 楽器ごとに、推定イベントと正解イベントを許容窓 (初期値 ±50ms) 内で 1 対 1 対応付ける
@@ -204,7 +204,7 @@ CLAUDE.md の想定構成からの差分: `poc/separation/` と `poc/mapping/` �
 |---|---|---|---|
 | R1 | **ADTOF の重み (ADTOF-pytorch・ADTOF Plus を含む) と madmom のモデルは CC BY-NC-SA (非商用)** | 有料アプリ・課金を伴う配布に使えない可能性 | PoC (個人の検証) では使用する。製品化の前に、作者へのライセンス確認、許諾の緩いモデルへの置き換え、または自前学習のいずれかを判断する。Domain Model とモデルを分離し、置き換えコストを抑える |
 | R2 | Demucs は公式メンテナンスが継続しているが新機能の予定なし | 将来の Python / torch 更新に追随できない可能性 | バージョン固定。差し替え可能な adapter 構造にする。第 2 候補 (MDX23C / RoFormer 系) を保持 |
-| R3 | Demucs の HiHat 分離品質 (高域が other に漏れる) | PoC 1 SC-002、PoC 2 の HiHat Recall が未達 | PoC 1 の確認区間で HiHat を個別に記録し、早期に検知する |
+| R3 | Demucs の HiHat 分離品質 (高域が other に漏れる) | PoC 1 SC-002、PoC 2 の HiHat Recall が未達 | PoC 1 の評価シートの `issues` で HiHat の問題を記録し、早期に検知する。定量的には PoC 2 で楽器別に測る |
 | R4 | Demucs の推論にランダムな時間シフトが含まれる設定がある | 再現性 (SC-006) が崩れる | PoC 1 の plan でシフト設定とシード固定を確認する |
 | R5 | 手動アノテーションの精度・作業量 | タイミング誤差の評価が Ground Truth の誤差に埋もれる | 区間を限定 (1 曲約 12 小節)。2 回アノテーションで誤差を見積もる。自作曲 MIDI を補助に使う |
 | R6 | M1 / 16GB での処理時間・メモリ | SC-005 未達 | CPU で約 1.5× 曲長の見込み (4 分曲で約 6 分)。MPS 利用は Unknown U2 で確認 |
@@ -235,7 +235,7 @@ CLAUDE.md の想定構成からの差分: `poc/separation/` と `poc/mapping/` �
 | 2 | PoC 1 plan / tasks (`specs/001-drum-stem-extraction/`) | plan.md / tasks.md | Human Review |
 | 3 | PoC 1 実装: audio (decode・DRM 判定) → separation → 実行記録 → 評価シートと集計 | Drum Stem、実行記録 | Lint / Test |
 | 4 | PoC 1 評価: 市販楽曲 5 曲以上で SC-001〜SC-007 を確認 | 評価レポート (`docs/research/`) | **Go/No-Go** |
-| 5 | PoC 2 spec〜plan。手動アノテーションの形式を決め、確認区間をアノテーション | spec / plan、Ground Truth CSV | Human Review |
+| 5 | PoC 2 spec〜plan。確認区間と手動アノテーションの形式を決め、アノテーションする | spec / plan、Ground Truth CSV | Human Review |
 | 6 | PoC 2 実装: transcription adapter → DrumEvent JSON / MIDI → 評価 (P/R/F1・誤差) | Drum Events、評価レポート | **Go/No-Go** |
 | 7 | PoC 3 spec〜plan | spec / plan | Human Review |
 | 8 | PoC 3 実装: beat adapter → BPM / 拍子算出 → mapping → 評価 | ReferencePerformance JSON、評価レポート | **Go/No-Go** |

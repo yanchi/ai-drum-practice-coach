@@ -63,8 +63,8 @@ uv run poc summarize [--runs-dir output/runs] [--report-dir output/reports]
 
 | 条件 | 終了コード |
 |---|---|
-| 評価シートの値が範囲外・形式が不正 (例: `drum_clarity: 6`、`detected > original`、区間が 3 つでない) | 2 (ファイル名と項目名を表示) |
-| 記入済みの評価シートが 0 件 | 2 |
+| 評価シートの値が不正 (例: `verdict: maybe`、`issues: [cowbell]`、未対応の `schema_version`) | 2 (ファイル名と項目名を表示) |
+| 記入済みの評価シートが 0 件 | 2 (未記入の run_id を表示) |
 
 ## `poc check-repro`
 

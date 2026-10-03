@@ -5,18 +5,10 @@ from poc.errors import UserInputError
 from poc.evaluation.sheet import SheetValidationError, load_sheet, render_template
 
 
-def filled(run_id="20261004-001919_3e21c73e"):
-    data = yaml.safe_load(render_template(run_id))
-    data.update(song_label="B・BLUE", genre="rock", evaluated_at="2026-10-04")
-    data["listening"] = {"drum_clarity": 4, "bleed": 3, "artifacts": 4}
-    for i, section in enumerate(data["sections"]):
-        section["start_sec"] = 10.0 * i
-        section["end_sec"] = 10.0 * i + 8
-        section["counts"] = {
-            "kick": {"original": 8, "detected": 8},
-            "snare": {"original": 4, "detected": 4},
-            "hihat": {"original": 16, "detected": 14},
-        }
+def filled(**overrides):
+    data = yaml.safe_load(render_template("RUN", song_label="1-10 B・BLUE"))
+    data.update(verdict="ok", issues=["hihat"])
+    data.update(overrides)
     return data
 
 
@@ -26,87 +18,58 @@ def write(tmp_path, data):
     return path
 
 
-def test_template_matches_contract():
-    text = render_template("RUN")
+def test_template_prefills_song_label():
+    text = render_template("RUN", song_label='1-10 B・BLUE "live"')
     assert text.startswith("# 評価シート (PoC 1)")
     data = yaml.safe_load(text)
-    assert data["schema_version"] == 1
-    assert data["run_id"] == "RUN"
-    assert [s["label"] for s in data["sections"]] == ["verse", "chorus", "fill"]
-    assert data["listening"] == {"drum_clarity": None, "bleed": None, "artifacts": None}
-    assert data["sections"][0]["counts"]["kick"] == {"original": None, "detected": None}
+    assert data == {
+        "schema_version": 2,
+        "run_id": "RUN",
+        "song_label": '1-10 B・BLUE "live"',
+        "genre": "",
+        "evaluated_at": "",
+        "verdict": None,
+        "issues": [],
+        "notes": "",
+    }
 
 
 def test_template_is_incomplete(tmp_path):
     path = tmp_path / "evaluation.yaml"
-    path.write_text(render_template("RUN"))
+    path.write_text(render_template("RUN", song_label="song"))
     assert load_sheet(path) is None
 
 
-def test_filled_sheet_loads(tmp_path):
-    sheet = load_sheet(write(tmp_path, filled()))
-    assert sheet.song_label == "B・BLUE"
-    assert sheet.evaluated_at == "2026-10-04"
-    assert sheet.listening.drum_clarity == 4
-    assert sheet.sections[2].counts["hihat"].detected == 14
+def test_verdict_only_is_enough(tmp_path):
+    sheet = load_sheet(write(tmp_path, filled(issues=[])))
+    assert sheet.verdict == "ok"
+    assert sheet.issues == []
+    assert sheet.song_label == "1-10 B・BLUE"
+    assert sheet.genre == ""
 
 
-def test_one_null_makes_sheet_incomplete(tmp_path):
-    data = filled()
-    data["sections"][1]["counts"]["snare"]["detected"] = None
-    assert load_sheet(write(tmp_path, data)) is None
+def test_verdict_is_case_insensitive_and_issues_deduplicated(tmp_path):
+    sheet = load_sheet(write(tmp_path, filled(verdict="NG", issues=["hihat", "bleed", "hihat"])))
+    assert sheet.verdict == "ng"
+    assert sheet.issues == ["hihat", "bleed"]
 
 
-def test_empty_label_makes_sheet_incomplete(tmp_path):
-    data = filled()
-    data["song_label"] = ""
-    assert load_sheet(write(tmp_path, data)) is None
-
-
-def mutate_rating(d):
-    d["listening"]["drum_clarity"] = 6
-
-
-def mutate_detected(d):
-    d["sections"][0]["counts"]["kick"]["detected"] = 9
-
-
-def mutate_negative(d):
-    d["sections"][0]["counts"]["kick"]["original"] = -1
-
-
-def mutate_end(d):
-    d["sections"][0]["end_sec"] = d["sections"][0]["start_sec"]
-
-
-def mutate_two_sections(d):
-    d["sections"] = d["sections"][:2]
-
-
-def mutate_duplicate_label(d):
-    d["sections"][1]["label"] = "verse"
-
-
-def mutate_schema(d):
-    d["schema_version"] = 99
+def test_empty_song_label_is_incomplete(tmp_path):
+    assert load_sheet(write(tmp_path, filled(song_label=""))) is None
 
 
 @pytest.mark.parametrize(
-    ("mutate", "field"),
+    ("overrides", "field"),
     [
-        (mutate_rating, "listening.drum_clarity"),
-        (mutate_detected, "sections[0].counts.kick"),
-        (mutate_negative, "sections[0].counts.kick"),
-        (mutate_end, "sections[0].end_sec"),
-        (mutate_two_sections, "sections"),
-        (mutate_duplicate_label, "sections"),
-        (mutate_schema, "schema_version"),
+        ({"verdict": "maybe"}, "verdict"),
+        ({"verdict": True}, "verdict"),  # `yes` in YAML
+        ({"issues": ["cowbell"]}, "issues"),
+        ({"issues": "hihat"}, "issues"),
+        ({"schema_version": 1}, "schema_version"),
     ],
 )
-def test_validation_errors(tmp_path, mutate, field):
-    data = filled()
-    mutate(data)
-    path = write(tmp_path, data)
+def test_validation_errors(tmp_path, overrides, field):
+    path = write(tmp_path, filled(**overrides))
     with pytest.raises(SheetValidationError) as exc:
         load_sheet(path)
     assert isinstance(exc.value, UserInputError)

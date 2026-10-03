@@ -47,14 +47,15 @@ uv run poc separate data/songs/01_rock.m4a
 
 ## 5. 評価シートを記入する
 
-`output/runs/<run_id>/evaluation.yaml` をエディタで開いて記入する。
+`output/runs/<run_id>/evaluation.yaml` をエディタで開いて記入する (1 曲あたり数分)。曲名 (`song_label`) は自動で入っている。
 
-1. `song_label` / `genre` / `evaluated_at` を書く
-2. 曲全体を聴いて `listening` の 3 項目を 1–5 で付ける
-3. Verse・Chorus・Fill 前後から 4 小節ずつ選び、`start_sec` / `end_sec` を書く
-4. 各区間で、原曲で聴こえる Kick / Snare / HiHat の打撃数 (ゴーストノートを除く) を `original` に、
-   Drum Stem で確認できた打撃数を `detected` に書く
-5. ゴーストノートについて気づいたことは `ghost_notes_memo` に書く
+1. `drums.wav` を聴いて、PoC 2 の打撃検出に使えそうなら `verdict: ok`、使えなさそうなら `verdict: ng`
+2. 気になった楽器・問題があれば `issues` に書く (例: `issues: [hihat, bleed]`)
+   - `kick` / `snare` / `hihat` / `toms` / `cymbals`: その楽器が消えている・弱い
+   - `bleed`: 他の楽器が混ざる / `artifacts`: 音質の劣化
+3. 必要なら `genre` / `evaluated_at` / `notes` も書く
+
+打撃の数は数えない。打撃の検出精度は PoC 2 で測る。
 
 ## 6. 再現性を確認する (SC-006)
 

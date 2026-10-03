@@ -137,7 +137,9 @@ def run_separation(
         (partial_dir / "run.json").write_text(
             json.dumps(run.to_dict(), indent=2, ensure_ascii=False) + "\n"
         )
-        (partial_dir / "evaluation.yaml").write_text(render_template(run.run_id))
+        (partial_dir / "evaluation.yaml").write_text(
+            render_template(run.run_id, song_label=Path(audio_path).stem)
+        )
         partial_dir.rename(final_dir)
     except BaseException:
         shutil.rmtree(partial_dir, ignore_errors=True)

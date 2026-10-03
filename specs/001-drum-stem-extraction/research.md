@@ -91,11 +91,12 @@
 - **Decision**: 1 回の実行ごとに `output/runs/<YYYYMMDD-HHMMSS>_<sha256 先頭 8 文字>/` を作る。処理中は `<run_id>.partial/` に書き、成功したらリネームする。失敗したら `.partial` を削除する。
 - **Rationale**: 実行ごとにディレクトリを分けるので上書きが起きない。リネームは同じファイルシステム内では原子的に行われるため、不完全な出力が残らない。`output/` は `.gitignore` 済み。
 
-## R-13: 聴感評価・打撃確認の記録 (FR-008, FR-009, FR-011)
+## R-13: 聴感評価の記録 (FR-008, FR-009, FR-011)
 
-- **Decision**: 実行ごとに評価シートの YAML テンプレートを生成し、開発者がエディタで記入する。集計コマンドですべての評価シートを読み込み、曲ごとの CSV と全体の集計 (Markdown) を出力する。
-- **Rationale**: 確認区間 3 つ × 楽器 3 種のネスト構造は、CSV より YAML の方が手で書きやすい。PyYAML は Demucs の依存として既に入るため、新しい依存は増えない (直接 import するので `pyproject.toml` には明記する)。
-- **Alternatives considered**: CSV (ネストした構造を書きにくい)、専用の UI (PoC の範囲外。Constitution V)。
+- **Decision**: 実行ごとに評価シートの YAML テンプレートを生成し、開発者が `verdict` (ok / ng) と `issues` (気になった楽器・問題) をエディタで記入する。曲名はファイル名から自動で記入する。集計コマンドですべての評価シートを読み込み、曲ごとの CSV と全体の集計 (Markdown) を出力する。
+- **Rationale**: PoC 1 で知りたいのは「PoC 2 に進めるか」だけであり、打撃の検出精度は PoC 2 で正解データを作って定量評価する。PoC 1 で打撃を手で数えると PoC 2 と同じ作業の重複になるため、1 曲あたり数分で終わる OK / NG 判定にした (2026-10-04 の spec 変更)。
+  PyYAML は Demucs の依存として既に入るため、新しい依存は増えない (直接 import するので `pyproject.toml` には明記する)。
+- **Alternatives considered**: 確認区間 (4 小節 × 3) の打撃数と 5 段階評価 (当初案。作業が重く PoC 2 と重複するため廃止)、CSV (自由記述のメモを書きにくい)、専用の UI (PoC の範囲外。Constitution V)。
 
 ## R-14: テスト方針
 

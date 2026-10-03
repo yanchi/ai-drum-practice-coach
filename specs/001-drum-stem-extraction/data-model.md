@@ -94,53 +94,34 @@ Domain Model は `poc/domain.py` に dataclass として定義する。Demucs �
 
 ## SeparationEvaluation (評価結果)
 
-開発者が記入する評価シート。`output/runs/<run_id>/evaluation.yaml`。テンプレートはコマンドで生成する。
+開発者が記入する評価シート。`output/runs/<run_id>/evaluation.yaml` (schema_version 2)。テンプレートは `poc separate` が生成する。
+2026-10-04 の spec 変更 (Clarifications) で、打撃数・確認区間・5 段階評価は廃止した。
 
 | Field | Type | Rule |
 |---|---|---|
 | `run_id` | str | 対応する SeparationRun |
-| `song_label` | str | 開発者が付ける曲名ラベル (集計表で使う。ファイル名とは別) |
-| `genre` | str | 評価セットのジャンルの偏りを確認するため |
-| `evaluated_at` | str | 日付 (YYYY-MM-DD) |
-| `listening` | ListeningRating | |
-| `sections` | CheckSection[3] | ちょうど 3 個 |
+| `song_label` | str | 入力ファイル名 (拡張子なし) で自動記入。開発者が書き換えてよい。空なら記入途中 |
+| `genre` | str | 任意。評価セットのジャンルの偏りを確認するため |
+| `evaluated_at` | str | 任意。日付 (YYYY-MM-DD) |
+| `verdict` | `"ok"` \| `"ng"` (大文字も可) | 必須 (FR-008)。ok = PoC 2 の打撃検出に使える。`null` なら記入途中 |
+| `issues` | list[str] | 任意 (FR-009)。`kick` / `snare` / `hihat` / `toms` / `cymbals` (その楽器が消えている・弱い)、`bleed` (他の楽器の混入)、`artifacts` (音質の劣化) から複数。重複は 1 つにまとめる |
 | `notes` | str | 任意 |
-
-### ListeningRating (FR-009, SC-003)
-
-| Field | Type | Rule |
-|---|---|---|
-| `drum_clarity` | int | 1–5 (5 = ドラムがはっきり聴き取れる) |
-| `bleed` | int | 1–5 (5 = 他の楽器の混入なし) |
-| `artifacts` | int | 1–5 (5 = 音質の劣化なし)。記録のみで合否には使わない |
-
-### CheckSection (FR-008, SC-002)
-
-| Field | Type | Rule |
-|---|---|---|
-| `label` | `"verse"` \| `"chorus"` \| `"fill"` | 3 区間で重複しない |
-| `start_sec` | float | 原曲内の開始時刻 (0 以上、曲長未満) |
-| `end_sec` | float | > `start_sec`。4 小節分 |
-| `counts` | dict | `kick` / `snare` / `hihat` それぞれ `{original: int, detected: int}`。`0 <= detected <= original` |
-| `ghost_notes_memo` | str | 任意。ゴーストノートが残っていたか・消えていたか |
-
-**派生値**: 区間の確認率 = Σdetected / Σoriginal。曲の確認率 = 3 区間の Σdetected / Σoriginal。楽器別の確認率も同様に計算する。
 
 ## EvaluationSummary (FR-011)
 
-集計コマンドの出力。評価シートが記入済み (`listening` と `sections` がすべて埋まっている) の run だけを対象にする。
+集計コマンドの出力。`verdict` と `song_label` が記入済みの run だけを対象にする。
 
-- `output/reports/summary.csv`: 1 行 1 曲。`run_id`, `song_label`, `genre`, `drum_clarity`, `bleed`, `artifacts`, `hit_rate`, `hit_rate_kick`, `hit_rate_snare`, `hit_rate_hihat`, `alignment_lag_ms`, `total_sec`, `peak_rss_mb`, `device`
-- `output/reports/summary.md`: 全体の平均と、SC-001〜SC-005 の判定 (PASS / FAIL / 曲数不足)
+- `output/reports/summary.csv`: 1 行 1 曲。`run_id`, `song_label`, `genre`, `verdict`, `issues` (`;` 区切り), `alignment_lag_ms`, `total_sec`, `peak_rss_mb`, `device`
+- `output/reports/summary.md`: SC-001 / SC-002 / SC-004 / SC-005 / SC-007 の判定 (PASS / FAIL / INSUFFICIENT / N/A) と、`issues` の楽器・問題ごとの件数
 
 ## Relationships
 
 ```text
 Song 1 ── * SeparationRun 1 ── 1..2 Stem
                     │
-                    └── 0..1 SeparationEvaluation ── 3 CheckSection
+                    └── 0..1 SeparationEvaluation
 
 EvaluationSummary ── * SeparationEvaluation (記入済みのもの)
 ```
 
-同じ Song を別の設定・別の方式で分離した場合は SeparationRun が増える。分離方式を追加して比較するときは、同じ Song に同じ `sections` (開始・終了時刻) を使う (spec Assumptions)。
+同じ Song を別の設定・別の方式で分離した場合は SeparationRun が増える。分離方式を追加して比較するときは、同じ評価セットの曲を使う (spec Assumptions)。
