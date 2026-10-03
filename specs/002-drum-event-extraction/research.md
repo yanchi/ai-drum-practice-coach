@@ -191,3 +191,10 @@ Roland TD-17 のサポート情報
   - TD-17 の生ノートの約 3 割が連続トリガー・跳ね返りとして除かれた (snare 約 500, kick 約 270 / 曲)。
 - **閾値の探索 (2 曲, `output/reports/poc2_thresholds.md`)**: Kick は既定値 0.22 が最良 (F1 0.969)。Snare は 0.10 で F1 0.891 → 0.924 (leave-one-out 0.921)。HiHat は 0.16 で 0.910 → 0.913 だが leave-one-out は 0.906 で改善なし (見逃した弱い打撃には活性値の山がない)。最終決定は 5 曲そろってから。
 - **残り**: ONLY YOU / 誇り高きものへ / WORKING MAN の録音・評価 (T043)、手動アノテーション 1〜2 曲 (T044)、`check-events` (T045)、README / テスト / quickstart (T040〜T042)、閾値の最終決定とレポート (T046)。
+
+## R-18: 練習用のクリック (2026-10-04 追加)
+
+- **Decision**: `poc record --click` で、Beat This! で検出した原曲の拍にクリック (小節頭は高い音) を重ねて再生する。拍は `output/runs/<run_id>/beats.json` にキャッシュする。
+- **Rationale**: 開発者の演奏を原曲の Reference と比べたところ、構成やテンポを見失う区間があり、原曲の拍に合ったガイドが欲しかった。Beat This! は `docs/poc-plan.md` で PoC 3 用に採用済みで、前倒しで依存に加えた (`beat-this` 1.1.0, MIT, 重み約 78 MB)。
+- **評価への影響**: クリックは伴奏と同じく再生側にだけ入り、録音したドラム音には回り込まない (伴奏に残った元のドラムからの検出 0、Precision 0.94〜1.00)。
+- **クリックありの評価結果と演奏の比較**: `docs/research/play-along-click.md`。
