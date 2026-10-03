@@ -25,4 +25,4 @@ def test_override_keeps_other_defaults():
     assert tuned["snare"] == default["snare"]
     assert tuned["tom"] == default["tom"]
     assert tuned["cymbal"] == default["cymbal"]
-    assert default == {"kick": 0.22, "snare": 0.24, "tom": 0.32, "hihat": 0.22, "cymbal": 0.30}
+    assert default == {"kick": 0.22, "snare": 0.24, "tom": 0.32, "hihat": 0.12, "cymbal": 0.30}

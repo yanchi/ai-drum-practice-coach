@@ -23,6 +23,10 @@ PEAK_PICKING = {
     "post_max": 0.01,
     "combine": 0.02,
 }
+
+# Project defaults on top of the ADTOF ones, chosen with TD-17 data by `poc tune-thresholds`
+# (leave-one-out over 5 songs; docs/research/poc2-evaluation.md, approved 2026-10-04).
+TUNED_THRESHOLDS = {"hihat": 0.12}
 # ADTOF output classes (adtof_pytorch.LABELS_5) in model output order.
 LABEL_TO_INSTRUMENT: dict[int, Instrument] = {
     35: "kick",
@@ -58,11 +62,13 @@ def parse_thresholds(text: str) -> dict[str, float]:
 
 class AdtofTranscriber:
     def __init__(self, thresholds: dict[str, float] | None = None):
-        """`thresholds` overrides the ADTOF defaults for the given instruments only."""
+        """`thresholds` overrides the defaults (ADTOF + TUNED_THRESHOLDS) for the given
+        instruments only."""
         from adtof_pytorch import FRAME_RNN_THRESHOLDS
 
         defaults = dict(zip(LABEL_TO_INSTRUMENT.values(), FRAME_RNN_THRESHOLDS, strict=True))
-        self.thresholds = {name: float(v) for name, v in {**defaults, **(thresholds or {})}.items()}
+        merged = {**defaults, **TUNED_THRESHOLDS, **(thresholds or {})}
+        self.thresholds = {name: float(v) for name, v in merged.items()}
         self._model = None
 
     def _load_model(self):

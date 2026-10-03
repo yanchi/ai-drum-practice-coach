@@ -221,3 +221,9 @@ Roland TD-17 のサポート情報
 - **SC-005** (T045): B・BLUE の drum stem を 2 回採譜し、`poc check-events` で 1683 打すべて一致 (PASS)。
 - **手動アノテーションの流れの確認**: ADTOF の結果から作った仮の `hits.csv` (B・BLUE 3 区間) で `poc evaluate --annotation` が最後まで動くことを確かめた。仮データのため評価結果は集計から外した (`output/archive/provisional-annotation/`)。SC-003 / SC-009 は未達のまま。
 - **残り**: 手動アノテーション 1〜2 曲 (T044)、閾値の最終決定とレポート (T046)。
+
+## R-20: 閾値の決定 (2026-10-04)
+
+- **Decision**: HiHat の検出閾値を 0.22 (ADTOF の既定) から 0.12 に下げる。Kick 0.22 / Snare 0.24 は ADTOF の既定のまま。`poc/transcription/adtof_adapter.py` の `TUNED_THRESHOLDS` で ADTOF の既定に上書きする。
+- **Rationale**: 5 曲の leave-one-out で HiHat の F1 が 0.846 → 0.861 に上がった。Kick / Snare は改善がないか誤差の範囲だった (R-16 の方針どおり、5 曲そろってから決めた)。閾値の変更後も、伴奏に残った元のドラムからの検出は 0。
+- **詳細**: `docs/research/poc2-evaluation.md`。
