@@ -106,7 +106,7 @@ TD-17 がなくても動くよう、合成音源・合成 MIDI でテストす�
 - [X] T036 [US2] Implement `poc/evaluation/events_summary.py` (SC judgements as `contracts/cli.md`, `poc2_summary.md` / `poc2_summary.csv`) and wire `summarize-events` in `poc/cli.py`
 - [X] T048 [US2] (research R-16) Split `AdtofTranscriber` into `activations()` and `events_from_activations()`, and implement `poc tune-thresholds` in `poc/evaluation/tuning.py`: recompute the drum stem activations once per song, re-run peak picking for thresholds 0.06–0.30 (step 0.02), pooled F1 per threshold, leave-one-song-out choice (middle of tied best thresholds), `output/reports/poc2_thresholds.md` / `.json`; tests in `tests/unit/test_tuning.py`
 - [X] T051 [US2] (added 2026-10-04, from the first real evaluation) Calibration onset at 2% of the rise (15% read the kick / snare head ~10 ms late); drop TD-17 double triggers: retrigger chains within 40 ms of the previous note and weak bounces (≤ 60% velocity) within 80 ms; ghost notes for the snare only (spec Clarifications); transcription ids include the input kind; separate evaluation mixes into `output/eval_runs/`
-- [ ] T037 [US2] Developer pilot: record and evaluate one song; check the velocity distribution of snare / hihat (adjust the ghost threshold 40 if needed), double triggers dropped, and the time spent (SC-007)
+- [X] T037 [US2] Developer pilot: record and evaluate one song; check the velocity distribution of snare / hihat (adjust the ghost threshold 40 if needed), double triggers dropped, and the time spent (SC-007)
 
 **Checkpoint**: 1 曲で録音から評価まで通る
 
@@ -130,7 +130,7 @@ TD-17 がなくても動くよう、合成音源・合成 MIDI でテストす�
 - [ ] T040 [P] Update `README.md` with a "PoC 2: Drum Event Extraction" section linking to `specs/002-drum-event-extraction/quickstart.md`
 - [ ] T041 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest`, `uv run pytest -m slow`; fix failures
 - [ ] T042 Follow `specs/002-drum-event-extraction/quickstart.md` end to end and fix steps that do not work as written
-- [ ] T043 Developer: record and evaluate all 5 PoC 1 songs with TD-17, noting the time spent per song (SC-003, SC-007)
+- [ ] T043 Developer: record and evaluate all 5 PoC 1 songs with TD-17, noting the time spent per song (SC-003, SC-007) — in progress: NO. NEW YORK and B・BLUE done (research R-17)
 - [ ] T044 Developer: manually annotate 1〜2 PoC 1 songs (3 sections × 4 bars) and run `poc evaluate --annotation` (SC-003, SC-009)
 - [ ] T045 Run `poc transcribe` twice on one PoC 1 run and `poc check-events` (SC-005)
 - [ ] T046 Run `poc tune-thresholds`, then `poc summarize-events` (SC-001 uses the leave-one-out F1 with tuned thresholds; also report the default-threshold F1), and write `docs/research/poc2-evaluation.md`: SC-001〜SC-009, per-instrument metrics for drum_stem vs mix, residual drum hits, ghost notes, strength correlation, alignment quality, processing time / memory, limitations (electronic drum timbre, rock only, small manual set), and a Go/No-Go recommendation (no audio or song file paths)
