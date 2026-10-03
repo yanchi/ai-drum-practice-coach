@@ -1,28 +1,20 @@
 <!--
 Sync Impact Report
 ==================
-Version change: (template) → 1.0.0
-Bump rationale: 初回制定。テンプレートの全プレースホルダーを CLAUDE.md の方針から具体化した。
+Version change: 1.0.0 → 1.0.1
+Bump rationale: PATCH。原則・セクションの意味は変えず、例示している ML Model 名を
+docs/poc-plan.md の承認済み技術選定 (BeatNet → Beat This!、ADTOF → ADTOF-pytorch) に合わせた。
 
-Modified principles (template placeholder → new title):
-  - [PRINCIPLE_1_NAME] → I. Hypothesis-First, Measurable PoC
-  - [PRINCIPLE_2_NAME] → II. Reference-Comparable Accuracy over Perfect Transcription
-  - [PRINCIPLE_3_NAME] → III. Separated Pipeline & Replaceable Models
-  - [PRINCIPLE_4_NAME] → IV. Copyright, DRM & Privacy (NON-NEGOTIABLE)
-  - [PRINCIPLE_5_NAME] → V. Simplicity & Scope Discipline
-Added principles:
-  - VI. Musically Aware Evaluation
-Added sections:
-  - Technical Constraints (template [SECTION_2_NAME])
-  - Development Workflow & Review Gates (template [SECTION_3_NAME])
+Modified principles:
+  - III. Separated Pipeline & Replaceable Models: 例示モデル名のみ更新
+Modified sections:
+  - Technical Constraints: OSS の例示に Beat This! を追加
+Added sections: なし
 Removed sections: なし
 
 Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — "Constitution Check" は憲法から動的に決まる記述のため変更不要
-  - ✅ .specify/templates/spec-template.md — 必須セクションの追加・削除なし、変更不要
-  - ✅ .specify/templates/tasks-template.md — 原則 I の「測定タスク」は既存のタスク分類で表現可能、変更不要
-  - ✅ .claude/commands/speckit.*.md — エージェント固有の古い参照なし、変更不要
-  - ✅ README.md / CLAUDE.md — 本憲法は CLAUDE.md を要約・規範化したもので矛盾なし、変更不要
+  - ✅ .specify/templates/*.md — 変更不要
+  - ✅ CLAUDE.md — Candidate Technologies を同日更新済み
 
 Follow-up TODOs: なし
 -->
@@ -59,7 +51,7 @@ Follow-up TODOs: なし
 
 - Audio Decode / Source Separation / Drum Transcription / Beat Analysis / Mapping / Evaluation
   の責務は分離しなければならない (MUST)。各段は入出力を明示し、単独で実行・テストできること。
-- ML Model (Demucs / ADTOF / BeatNet 等) 固有のデータ形式を Domain Model
+- ML Model (Demucs / ADTOF-pytorch / Beat This! 等) 固有のデータ形式を Domain Model
   (Song, BeatGrid, DrumEvent, ReferencePerformance 等) に直接漏らしてはならない (MUST NOT)。
   モデル出力は境界で変換する。
 - モデルの差し替えが、該当段以外のコード変更を必要としない構造にする (SHOULD)。
@@ -107,7 +99,7 @@ On-device 戦略の主要な理由である。
 ## Technical Constraints
 
 - PoC は Python / Desktop で実装する。最終アプリは Flutter を想定する。
-- OSS (Demucs / ADTOF / ADTOF Plus / BeatNet 等) は採用前に現在の Repository・License・
+- OSS (Demucs / ADTOF / ADTOF Plus / Beat This! 等) は採用前に現在の Repository・License・
   対応 Python Version・メンテナンス状況・Model Size を確認しなければならない (MUST)。
   古い情報を前提にしない。
 - 入力ソースは Acoustic Drums (マイク録音)、Electronic Drums (Audio 出力)、
@@ -146,4 +138,4 @@ On-device 戦略の主要な理由である。
 - すべての Plan は "Constitution Check" で本憲法への適合を確認しなければならない。
   違反がある場合は plan の Complexity Tracking に理由と、より単純な代替案を却下した理由を記載する。
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-03 | **Last Amended**: 2026-10-03
+**Version**: 1.0.1 | **Ratified**: 2026-10-03 | **Last Amended**: 2026-10-03

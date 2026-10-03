@@ -153,11 +153,13 @@ Reference Performance Data
 
 候補技術は固定せず、実装前に現在の状態・ライセンス・メンテナンス状況を確認する。
 
-初期候補:
+PoC 採用技術 (2026-10-03 承認。詳細と選定理由は `docs/poc-plan.md`):
 
-- Demucs: Source Separation
-- ADTOF / ADTOF Plus: Automatic Drum Transcription
-- BeatNet: Beat / Downbeat / Tempo / Meter
+- Demucs v4 (`adefossez/demucs`, htdemucs): Source Separation
+- ADTOF-pytorch: Automatic Drum Transcription (重みは CC BY-NC-SA。製品化前にライセンスを再判断する)
+- Beat This!: Beat / Downbeat (BPM / Meter は beat / downbeat から算出)
+
+初期候補だった BeatNet は、依存関係 (numba 0.54.1 固定・madmom) が現行 Python で成立しないため不採用とした。
 
 最初から独自MLモデルを学習しない。
 既存Pretrained Modelを評価し、要求精度を満たせない場合のみFine-tuning等を検討する。
