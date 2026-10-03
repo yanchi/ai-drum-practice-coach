@@ -218,4 +218,6 @@ Roland TD-17 のサポート情報
   - ONLY YOU の HiHat の Recall が 0.63 と低い。開発者のハイハットが弱く (velocity 中央値 45)、弱い打撃を拾えていない。
   - 187 BPM の 3 曲 (PLASTIC BOMB / WORKING MAN / ONLY YOU) は、HiHat のタイミング中央値が 8〜10 ms と、167 BPM の 2 曲 (5.5〜6.0 ms) より大きい。
   - 伴奏に残った元のドラムからの検出は 5 曲とも 0。
-- **残り**: 手動アノテーション 1〜2 曲 (T044)、`check-events` (T045)、README / テスト / quickstart (T040〜T042)、閾値の最終決定とレポート (T046)。
+- **SC-005** (T045): B・BLUE の drum stem を 2 回採譜し、`poc check-events` で 1683 打すべて一致 (PASS)。
+- **手動アノテーションの流れの確認**: ADTOF の結果から作った仮の `hits.csv` (B・BLUE 3 区間) で `poc evaluate --annotation` が最後まで動くことを確かめた。仮データのため評価結果は集計から外した (`output/archive/provisional-annotation/`)。SC-003 / SC-009 は未達のまま。
+- **残り**: 手動アノテーション 1〜2 曲 (T044)、閾値の最終決定とレポート (T046)。

@@ -52,5 +52,5 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: runs the real Demucs model"]
+markers = ["slow: runs the real models (Demucs, ADTOF-pytorch, Beat This!)"]
 addopts = "-m 'not slow'"

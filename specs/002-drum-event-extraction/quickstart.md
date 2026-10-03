@@ -1,6 +1,7 @@
 # Quickstart: Drum Event Extraction (PoC 2)
 
-前提: [PoC 1 の quickstart](../001-drum-stem-extraction/quickstart.md) を済ませ、`output/runs/` に 5 曲の分離結果があること。
+前提: [PoC 1 の quickstart](../001-drum-stem-extraction/quickstart.md) を済ませ、`output/runs/` に評価セット 5 曲 (NO. NEW YORK / B・BLUE / ONLY YOU / WORKING MAN / PLASTIC BOMB) の分離結果があること。
+PLASTIC BOMB は PoC 1 の評価セット外のため、`uv run poc separate "data/song/<曲>.m4a"` を先に実行する。
 
 ## 0. TD-17 の準備 (最初の 1 回)
 
@@ -39,15 +40,21 @@ afplay output/transcriptions/<transcription_id>/check.wav   # 原曲 + クリッ
 曲ごとに:
 
 ```bash
-uv run poc record output/runs/<run_id>      # カウントのあと伴奏が流れるので、曲を通して叩く
+uv run poc record output/runs/<run_id> --click   # カウントのあと伴奏が流れるので、曲を通して叩く
 uv run poc evaluate output/recordings/<recording_id>
 ```
+
+`--click` を付けると、原曲の拍に合わせたクリック (小節頭は高い音) が伴奏に重なる (research R-18)。
+
+- 拍は Beat This! で検出し、`output/runs/<run_id>/beats.json` に保存する。最初の 1 回は重み (約 78 MB) のダウンロードを含めて 1〜2 分かかる。
+- クリックの位置は、その曲の drum stem の最新の採譜結果 (手順 1) に合わせて補正する。採譜結果がないとエラーになるので、先に `poc transcribe` を実行する。
+- 小節頭の判定は曲によって乱れる (PLASTIC BOMB など)。拍そのものの位置は合っている。
 
 1 曲にかかった作業時間 (録音 + 評価) をメモしておく (SC-007)。
 
 ## 3. 市販曲の手動アノテーション (1〜2 曲)
 
-1. Sonic Visualiser などで PoC 1 の原曲を開き、Verse・Chorus・Fill 前後の 4 小節ずつ (計 3 区間) で打撃に印を付ける
+1. Sonic Visualiser などで原曲を開き、Verse・Chorus・Fill 前後の 4 小節ずつ (計 3 区間) で打撃に印を付ける
    (ラベル: `k` / `s` / `h`、スネアのゴーストノートは `sg`)
 2. 時刻とラベルを CSV で書き出し、`data/annotations/<名前>/hits.csv` に置く
 3. 同じフォルダに `annotation.yaml` を書く:
@@ -71,8 +78,14 @@ uv run poc evaluate output/recordings/<recording_id>
 ## 4. 集計する
 
 ```bash
+uv run poc transcribe output/runs/<run_id>    # 同じ曲を 2 回採譜して
+uv run poc transcribe output/runs/<run_id>
+uv run poc check-events output/transcriptions/<id_a> output/transcriptions/<id_b>   # 一致すること (SC-005)
+uv run poc tune-thresholds      # 閾値の探索 (output/reports/poc2_thresholds.md)
 uv run poc summarize-events     # output/reports/poc2_summary.md
 ```
+
+`summarize-events` は曲ごとに最新の評価を使う。
 
 結果を `docs/research/poc2-evaluation.md` にまとめ、Go/No-Go の Human Review に出す。
 
@@ -81,5 +94,5 @@ uv run poc summarize-events     # output/reports/poc2_summary.md
 ```bash
 uv run ruff check . && uv run ruff format --check .
 uv run pytest                 # TD-17 なしで動くテスト (合成音源・合成 MIDI)
-uv run pytest -m slow         # 実際に ADTOF-pytorch を動かすテスト
+uv run pytest -m slow         # 実際に Demucs / ADTOF-pytorch / Beat This! を動かすテスト
 ```
