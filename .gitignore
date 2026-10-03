@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Local audio / analysis outputs (copyrighted material must not be committed)
+data/
+output/
+*.wav
+*.aif
+*.aiff
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+# Allow small, self-made fixtures explicitly
+!poc/fixtures/**
+
+# Model weights / caches
+models/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.mlmodel
+*.mlpackage/
+
+# Editors
+.vscode/
+.idea/
