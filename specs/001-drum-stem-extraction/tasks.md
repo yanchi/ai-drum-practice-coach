@@ -116,16 +116,16 @@ description: "Task list for PoC 1: Drum Stem Extraction"
 
 ### Tests for User Story 3
 
-- [ ] T028 [P] [US3] Write `tests/unit/test_metrics.py`: `Stopwatch` records named stages and a `total`; `peak_rss_bytes()` returns a positive int (macOS reports bytes); `environment_info()` contains `python`, `torch`, `demucs`, `ffmpeg`, `platform`, `machine` keys (ffmpeg value may be `"not found"` when missing)
-- [ ] T029 [P] [US3] Write `tests/unit/test_repro.py`: identical drums.wav → `max_abs_diff == 0` and PASS; added noise of 1e-3 → FAIL with tolerance 1e-4; different `song.sha256` or different `separator.params` → `UserInputError` (exit 2); differing only in `separator.device` is allowed
-- [ ] T030 [P] [US3] Extend `tests/pipeline/test_run_us3.py` using `FakeSeparator`: `run.json` contains `timings_sec` with `decode` / `separate` / `write` / `total`, `peak_memory.rss_bytes`, `environment`, and `separator.params.seed`
+- [X] T028 [P] [US3] Write `tests/unit/test_metrics.py`: `Stopwatch` records named stages and a `total`; `peak_rss_bytes()` returns a positive int (macOS reports bytes); `environment_info()` contains `python`, `torch`, `demucs`, `ffmpeg`, `platform`, `machine` keys (ffmpeg value may be `"not found"` when missing)
+- [X] T029 [P] [US3] Write `tests/unit/test_repro.py`: identical drums.wav → `max_abs_diff == 0` and PASS; added noise of 1e-3 → FAIL with tolerance 1e-4; different `song.sha256` or different `separator.params` → `UserInputError` (exit 2); differing only in `separator.device` is allowed
+- [X] T030 [P] [US3] Extend `tests/pipeline/test_run_us3.py` using `FakeSeparator`: `run.json` contains `timings_sec` with `decode` / `separate` / `write` / `total`, `peak_memory.rss_bytes`, `environment`, and `separator.params.seed`
 
 ### Implementation for User Story 3
 
-- [ ] T031 [P] [US3] Implement `poc/evaluation/metrics.py`: `Stopwatch` context manager per stage using `time.perf_counter`, `peak_rss_bytes()` via `resource.getrusage(resource.RUSAGE_SELF).ru_maxrss` (bytes on macOS, ×1024 on Linux), `mps_driver_bytes()` returning `torch.mps.driver_allocated_memory()` when MPS is in use else `None`, and `environment_info()` (Python / torch / demucs versions via `importlib.metadata`, first line of `ffmpeg -version`, `platform.platform()`, CPU name via `sysctl -n machdep.cpu.brand_string` on macOS) (research R-11)
-- [ ] T032 [US3] Update `poc/evaluation/run.py` to measure `decode` / `separate` / `write` stages, track the peak MPS driver memory after separation, and fill `timings_sec`, `peak_memory`, `environment` in `run.json`
-- [ ] T033 [US3] Implement `poc/evaluation/repro.py`: `compare_runs(run_a, run_b, tolerance=1e-4) -> (max_abs_diff, passed)` that checks `song.sha256` and `separator` (excluding `device`) match, then compares `drums.wav` sample-wise; wire `check-repro` in `poc/cli.py` printing `max_abs_diff=<v> tolerance=<t> result=PASS|FAIL` and returning 0 / 1 (contracts/cli.md)
-- [ ] T034 [US3] Manually verify: separate the same user-owned song twice and run `uv run poc check-repro` (quickstart.md §6)
+- [X] T031 [P] [US3] Implement `poc/evaluation/metrics.py`: `Stopwatch` context manager per stage using `time.perf_counter`, `peak_rss_bytes()` via `resource.getrusage(resource.RUSAGE_SELF).ru_maxrss` (bytes on macOS, ×1024 on Linux), `mps_driver_bytes()` returning `torch.mps.driver_allocated_memory()` when MPS is in use else `None`, and `environment_info()` (Python / torch / demucs versions via `importlib.metadata`, first line of `ffmpeg -version`, `platform.platform()`, CPU name via `sysctl -n machdep.cpu.brand_string` on macOS) (research R-11)
+- [X] T032 [US3] Update `poc/evaluation/run.py` to measure `decode` / `separate` / `write` stages, track the peak MPS driver memory after separation, and fill `timings_sec`, `peak_memory`, `environment` in `run.json`
+- [X] T033 [US3] Implement `poc/evaluation/repro.py`: `compare_runs(run_a, run_b, tolerance=1e-4) -> (max_abs_diff, passed)` that checks `song.sha256` and `separator` (excluding `device`) match, then compares `drums.wav` sample-wise; wire `check-repro` in `poc/cli.py` printing `max_abs_diff=<v> tolerance=<t> result=PASS|FAIL` and returning 0 / 1 (contracts/cli.md)
+- [X] T034 [US3] Manually verify: separate the same user-owned song twice and run `uv run poc check-repro` (quickstart.md §6)
 
 **Checkpoint**: 各実行の条件と処理コストが記録され、再現性を確認できる
 

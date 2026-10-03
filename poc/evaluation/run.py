@@ -14,6 +14,12 @@ from poc.audio.decode import load_song
 from poc.audio.signal import estimate_lag, peak, rms_db_relative
 from poc.domain import AlignmentCheck, RunWarning, SeparationRun, Song, Stem, StemKind
 from poc.errors import PocError
+from poc.evaluation.metrics import (
+    Stopwatch,
+    environment_info,
+    mps_driver_bytes,
+    peak_rss_bytes,
+)
 from poc.evaluation.sheet import render_template
 from poc.separation.base import SeparationOutput, Separator
 
@@ -101,9 +107,13 @@ def run_separation(
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    watch = Stopwatch()
 
-    song, mix, warnings = load_song(audio_path)
-    out = separator.separate(mix, song.sample_rate)
+    with watch.stage("decode"):
+        song, mix, warnings = load_song(audio_path)
+    with watch.stage("separate"):
+        out = separator.separate(mix, song.sample_rate)
+    mps_bytes = mps_driver_bytes(out.info.device)
     alignment = check_alignment(song, mix, out)
 
     stem_audio: dict[StemKind, np.ndarray] = {"drums": out.drums}
@@ -113,32 +123,39 @@ def run_separation(
     warnings = warnings + _stem_warnings(stems, alignment)
 
     now = now or datetime.now().astimezone()
-    run = SeparationRun(
-        run_id=make_run_id(now, song.sha256),
-        created_at=now.isoformat(timespec="seconds"),
-        status="succeeded",
-        song=song,
-        separator=out.info,
-        stems=stems,
-        alignment=alignment,
-        warnings=warnings,
-    )
-
-    final_dir = output_dir / run.run_id
-    partial_dir = output_dir / f"{run.run_id}.partial"
+    run_id = make_run_id(now, song.sha256)
+    final_dir = output_dir / run_id
+    partial_dir = output_dir / f"{run_id}.partial"
     if final_dir.exists() or partial_dir.exists():
         raise PocError(f"run directory already exists: {final_dir}")
     partial_dir.mkdir()
     try:
-        for stem in stems:
-            sf.write(
-                partial_dir / stem.path, stem_audio[stem.kind].T, song.sample_rate, subtype="FLOAT"
-            )
+        with watch.stage("write"):
+            for stem in stems:
+                sf.write(
+                    partial_dir / stem.path,
+                    stem_audio[stem.kind].T,
+                    song.sample_rate,
+                    subtype="FLOAT",
+                )
+        run = SeparationRun(
+            run_id=run_id,
+            created_at=now.isoformat(timespec="seconds"),
+            status="succeeded",
+            song=song,
+            separator=out.info,
+            stems=stems,
+            alignment=alignment,
+            warnings=warnings,
+            timings_sec=watch.result(),
+            peak_memory={"rss_bytes": peak_rss_bytes(), "mps_driver_bytes": mps_bytes},
+            environment=environment_info(),
+        )
         (partial_dir / "run.json").write_text(
             json.dumps(run.to_dict(), indent=2, ensure_ascii=False) + "\n"
         )
         (partial_dir / "evaluation.yaml").write_text(
-            render_template(run.run_id, song_label=Path(audio_path).stem)
+            render_template(run_id, song_label=Path(audio_path).stem)
         )
         partial_dir.rename(final_dir)
     except BaseException:

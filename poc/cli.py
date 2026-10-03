@@ -38,7 +38,12 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
 
 
 def _cmd_check_repro(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.evaluation.repro import compare_runs
+
+    diff, passed = compare_runs(args.run_dir_a, args.run_dir_b, args.tolerance)
+    result = "PASS" if passed else "FAIL"
+    print(f"max_abs_diff={diff:g} tolerance={args.tolerance:g} result={result}")
+    return 0 if passed else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
