@@ -245,11 +245,13 @@ def record_play_along(
     output_dir: Path,
     max_seconds: float | None = None,
     click: bool = False,
+    transcriptions_dir: Path = Path("output/transcriptions"),
 ) -> Path:
     """Record one play-along with the PoC 1 accompaniment. Returns the recording directory.
 
     With `click`, a click on every song beat (Beat This!, cached in <run>/beats.json) is
-    played along. It goes to the playback only, like the accompaniment."""
+    played along, shifted onto the drums of the run's drum stem transcription. It goes to
+    the playback only, like the accompaniment."""
     poc1_run_dir = Path(poc1_run_dir)
     run = load_poc1_run(poc1_run_dir)
     device = find_audio_device(device_name)
@@ -257,13 +259,11 @@ def record_play_along(
     playback, count_in = build_playback(_load_accompaniment(poc1_run_dir), SAMPLE_RATE)
     click_info = None
     if click:
-        from poc.beat.beats import BEATS_FILE, load_or_detect_beats
+        from poc.beat.beats import click_beats
 
-        beats = load_or_detect_beats(poc1_run_dir)
-        clicks = add_beat_clicks(
-            playback, count_in, beats["beats"], beats["downbeats"], SAMPLE_RATE
-        )
-        click_info = {"beats_file": BEATS_FILE, "clicks": clicks, "gain": CLICK_GAIN}
+        beats, downbeats, click_info = click_beats(poc1_run_dir, transcriptions_dir)
+        click_info["clicks"] = add_beat_clicks(playback, count_in, beats, downbeats, SAMPLE_RATE)
+        click_info["gain"] = CLICK_GAIN
     if max_seconds is not None:  # e.g. a short test recording
         playback = playback[:, : count_in + int(max_seconds * SAMPLE_RATE)]
     seconds = playback.shape[1] / SAMPLE_RATE
