@@ -1,0 +1,19 @@
+# Roland TD-17 default MIDI note numbers (research R-08). Check with `poc record --check`
+# and edit if your kit sends different notes. Notes under `ignore` are not evaluated.
+kick: [36]
+snare: [38, 40, 37]          # head, rim, cross stick
+hihat: [42, 22, 46, 26, 44]  # closed bow / edge, open bow / edge, pedal "chick"
+ignore:
+  - 48
+  - 50  # tom 1 head / rim
+  - 45
+  - 47  # tom 2
+  - 43
+  - 58  # tom 3
+  - 49
+  - 55  # crash 1
+  - 57
+  - 52  # crash 2
+  - 51
+  - 59
+  - 53  # ride bow / edge / bell

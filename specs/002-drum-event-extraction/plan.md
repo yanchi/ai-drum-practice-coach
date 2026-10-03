@@ -84,7 +84,7 @@ poc/
 │   ├── devices.py                # sounddevice / python-rtmidi のデバイス検索
 │   ├── record.py                 # duplex ストリームでの再生・録音、MIDI 受信 (実機のみ)
 │   ├── check.py                  # --check (ループバック判定、ノート番号の表示)
-│   ├── align.py                  # MIDI と音声のずれ補正 (R-06)
+│   ├── calibration.py            # パッドごとの MIDI と音声のずれの測定 (R-06)
 │   └── mix.py                    # 評価用の曲と GroundTruth の作成 (R-10)
 ├── evaluation/                   # (PoC 1 の run.py / sheet.py / summary.py / metrics.py / repro.py は既存)
 │   ├── matching.py               # 1 対 1 の対応付けと指標 (R-11)
@@ -96,7 +96,7 @@ poc/
 tests/
 ├── unit/
 │   ├── test_matching.py          # 1 対 1 対応・許容範囲・指標・ゴースト除外
-│   ├── test_align.py             # 合成 MIDI + 合成クリック音でのずれ補正
+│   ├── test_calibration.py       # 合成音でのパッドごとのずれ測定
 │   ├── test_mix.py               # 遅延補正・音量調整・GroundTruth の時刻
 │   ├── test_groundtruth.py       # hits.csv / annotation.yaml の読み込みと検証
 │   ├── test_note_map.py          # TD-17 の対応表、ペダル (44) = hihat、CC は無視
@@ -126,7 +126,7 @@ PoC 1 の `poc/evaluation/` (評価シート・集計) とファイル名が衝�
 2. Foundational: Domain Model の追加、`Transcriber` Protocol
 3. US1 (P1): ADTOF adapter → `poc transcribe` → `check.wav` / `events.mid` → 5 曲で試聴
 4. Step 0: TD-17 の準備と `poc record --list-devices` / `--check`
-5. US2 (P2): 対応表 → 録音 → ずれ補正 → 評価用の曲 → 対応付けと指標 → `poc evaluate` → 手動アノテーションの読み込み → `poc summarize-events`
+5. US2 (P2): 対応表 → 録音 → キャリブレーション → 評価用の曲 → 対応付けと指標 → `poc evaluate` → 手動アノテーションの読み込み → `poc summarize-events`
 6. US3 (P3): `mix` 入力の推定と比較 (evaluate の中で一緒に実行)
 7. 評価: 5 曲の録音・評価、手動アノテーション 1〜2 曲 → `docs/research/poc2-evaluation.md` → Go/No-Go
 

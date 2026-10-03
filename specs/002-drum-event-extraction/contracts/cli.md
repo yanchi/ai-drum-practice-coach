@@ -36,6 +36,7 @@ TD-17 で伴奏に合わせて叩き、MIDI とドラムの音声を録音する
 ```text
 uv run poc record <poc1_run_dir> [--device "TD-17"] [--midi-port "TD-17"] [--output-dir output/recordings]
 uv run poc record --check [--device "TD-17"] [--midi-port "TD-17"]
+uv run poc record --calibrate [--device "TD-17"] [--midi-port "TD-17"]
 uv run poc record --list-devices
 ```
 
@@ -45,6 +46,8 @@ uv run poc record --list-devices
   1. 伴奏の代わりにテスト音を 5 秒流し、何も叩かずに録音して、録音に再生音が混ざらないかを判定する (R-07)
   2. 「各パッドを 1 回ずつ叩いてください」と表示し、受け取ったノート番号と対応表 (R-08) の楽器名を表示する
   3. 結果を `PASS` / `FAIL` で表示する
+- `--calibrate`: ガイドのクリック (60 BPM) に合わせて Kick ×8・Snare ヘッド ×8・リム ×4・HiHat クローズ ×8・オープン ×4・ペダル ×4 を 1 打ずつ叩き、パッドごとの MIDI と音声のずれを測って `output/recordings/calibrations/<id>/calibration.json` に保存する。打撃が足りない・ばらつきが 1 ms を超える場合は終了コード 1 (録音は残す)
+- `--max-seconds N`: 伴奏の最初の N 秒だけ録音する (試し録音用)
 - `--list-devices`: 音声デバイスと MIDI ポートの一覧を表示する
 - デバイスや MIDI ポートが見つからない場合は、ドライバの導入と `USB Driver Mode = VENDOR` の設定を案内して終了コード 2
 
@@ -58,7 +61,7 @@ uv run poc evaluate --annotation <annotation.yaml> [--tolerance-ms 50]
 ```
 
 - `<recording_dir>` の場合 (電子ドラム) は次をまとめて行う:
-  1. MIDI と音声のずれを測って補正 (SC-008)。`matched_ratio < 0.8` または `residual_std_ms > 1.0` なら終了コード 1 で止める
+  1. 最新のキャリブレーション (`--calibration` で指定も可) のパッドごとのずれで MIDI の時刻を補正し、同じ楽器の 40 ms 以内の 2 つ目のノートを除く。キャリブレーションがない場合は終了コード 2
   2. 評価用の曲 (`mix.wav`) と `groundtruth.json` を recording ディレクトリに作る
   3. 評価用の曲を PoC 1 の分離 (`poc separate` と同じ処理) にかける
   4. `drum_stem` / `mix` / 元の伴奏の `accompaniment` の 3 つで推定する
@@ -83,7 +86,7 @@ uv run poc summarize-events [--evaluations-dir output/evaluations] [--report-dir
 | SC-003 | 電子ドラムの評価が 5 曲 (別の PoC 1 run) 以上、手動アノテーションの評価が 1 曲以上 |
 | SC-004 | `drum_stem` の推定時間を 4 分に換算した最大値 ≤ 2 分 |
 | SC-006 | すべての `transcription.json` に FR-011 の項目がある |
-| SC-008 | すべての電子ドラムの評価で `residual_std_ms` ≤ 1.0 |
+| SC-008 | 評価に使ったキャリブレーションの `std_ms` がすべて ≤ 1.0 |
 | SC-009 | 手動の F1 が、同じ楽器の電子ドラムの F1 − 0.10 以上 (参考値) |
 
 SC-005 は `poc check-events <transcription_a> <transcription_b>` (イベント一覧の一致を確認) で、SC-007 は開発者の作業時間の記録で確認する。

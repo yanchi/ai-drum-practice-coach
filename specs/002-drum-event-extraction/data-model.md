@@ -63,7 +63,9 @@
 | `schema_version` | int | 1 |
 | `recording_id` | str | `<YYYYMMDD-HHMMSS>_<伴奏の PoC 1 run_id の sha 部分>` |
 | `poc1_run_id` | str | 伴奏を取った PoC 1 の run |
-| `device` | dict | 入出力デバイス名、サンプルレート、ブロックサイズ、ストリームの入力・出力遅延 (秒) |
+| `device` | dict | 入出力デバイス名、ブロックサイズ、ストリームの入力・出力遅延 (秒) |
+| `count_in_samples` | int | 伴奏の前のカウントの長さ (サンプル) |
+| `clock_fit` | dict | ストリーム時刻 → 録音の秒数の直線 (`slope`, `intercept`, `residual_std_ms`) |
 | `midi_port` | str | MIDI 入力ポート名 |
 | `note_map` | dict | 使った対応表 (R-08) |
 | `notes` | MidiNote[] | 受信したノート (`midi_notes.json` に保存) |
@@ -73,7 +75,7 @@
 
 | Field | Type | Rule |
 |---|---|---|
-| `time_sec` | float | 録音開始からの秒数 (`perf_counter` 基準、補正前) |
+| `time_sec` | float | 録音 (`drums.wav`) の先頭からの秒数。MIDI 受信時のストリーム時刻を変換した値で、立ち上がりとの細かい補正 (align.py) の前 |
 | `note` | int | 0〜127 |
 | `velocity` | int | 1〜127 (velocity 0 の Note On は Note Off として無視) |
 
@@ -99,15 +101,28 @@
 | `velocity` | int \| null | 手動は null |
 | `ghost` | bool | MIDI: Snare・HiHat で velocity < 40。手動: ラベル末尾 `g` |
 
-### MidiAudioAlignment (SC-008)
+### MidiAudioAlignment
 
 | Field | Type | Rule |
 |---|---|---|
-| `offset_ms` | float | 補正値 (MIDI 時刻 + offset = 音声の時刻)。打撃ごとのずれの中央値 |
-| `residual_std_ms` | float | 補正後のずれの標準偏差。≤ 1.0 で SC-008 を満たす |
-| `matched_ratio` | float | オンセットと対応が取れた MIDI ノートの割合。< 0.8 なら評価を止める |
+| `calibration_id` | str | 使ったキャリブレーションの recording_id |
+| `note_offsets_ms` | dict[int, float] | 補正に使ったパッドごとのずれ (MIDI 時刻 + ずれ = 音声の時刻) |
+| `max_std_ms` | float | キャリブレーションのばらつきの最大値 (SC-008: ≤ 1.0) |
+| `dropped_double_triggers` | int | 同じ楽器の 40 ms 以内の 2 つ目のノートとして除いた数 |
 | `stream_latency_ms` | float | ドラムを伴奏の時間軸に揃えるためにずらした量 (R-05, R-10) |
 | `drum_gain_db` | float | 評価用の曲を作るときのドラムの音量調整 (R-10) |
+
+## Calibration (キャリブレーション, FR-017)
+
+`output/recordings/calibrations/<YYYYMMDD-HHMMSS>_calibration/`。`drums.wav` / `midi_notes.json` / `recording.json` (`kind: calibration`) + `calibration.json`。
+
+| Field | Type | Rule |
+|---|---|---|
+| `offsets_ms` | dict[str, float] | 楽器ごとのずれ (中央値)。ノート単位の値がないときに使う |
+| `note_offsets_ms` | dict[int, float] | パッド (MIDI ノート) ごとのずれ。3 打以上あるノートのみ |
+| `std_ms` | dict[str, float] | 楽器ごとのばらつき (各ノートの中央値からの偏差の標準偏差)。SC-008: ≤ 1.0 |
+| `counts` | dict[str, int] | 楽器ごとの、測れた打撃数 (3 以上が必要) |
+| `outliers` | int | 中央値から 3 ms 以上離れて除いた打撃数 |
 
 ## TranscriptionEvaluation (評価結果)
 

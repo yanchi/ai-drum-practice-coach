@@ -71,7 +71,34 @@ def _cmd_check_events(args: argparse.Namespace) -> int:
 
 
 def _cmd_record(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.errors import UserInputError
+    from poc.recording.devices import describe_devices
+
+    if args.list_devices:
+        print(describe_devices())
+        return 0
+    if args.check:
+        from poc.recording.check import run_check
+
+        return 0 if run_check(args.device, args.midi_port) else 1
+    if args.calibrate:
+        from poc.recording.record import record_calibration
+
+        out = record_calibration(args.device, args.midi_port, args.output_dir / "calibrations")
+        print((out / "calibration.json").read_text(), file=sys.stderr)
+        print(out.resolve())
+        return 0
+    if args.poc1_run_dir is None:
+        raise UserInputError("give a PoC 1 run directory, --calibrate, --check, or --list-devices")
+    from poc.recording.record import record_play_along
+
+    out = record_play_along(
+        args.poc1_run_dir, args.device, args.midi_port, args.output_dir, args.max_seconds
+    )
+    data = json.loads((out / "recording.json").read_text())
+    print(f"notes={data['note_count']} duration={data['duration_sec']:.1f}s", file=sys.stderr)
+    print(out.resolve())
+    return 0
 
 
 def _cmd_evaluate(args: argparse.Namespace) -> int:
@@ -121,10 +148,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("record", help="record a TD-17 play-along (MIDI + drum audio)")
     p.add_argument("poc1_run_dir", type=Path, nargs="?")
     p.add_argument("--check", action="store_true", help="check loopback and pad note numbers")
+    p.add_argument("--calibrate", action="store_true", help="measure MIDI-to-audio latency per pad")
     p.add_argument("--list-devices", action="store_true")
     p.add_argument("--device", default="TD-17")
     p.add_argument("--midi-port", default="TD-17")
     p.add_argument("--output-dir", type=Path, default=Path("output/recordings"))
+    p.add_argument("--max-seconds", type=float, help="stop after this many seconds of the song")
     p.set_defaults(func=_cmd_record)
 
     p = sub.add_parser("evaluate", help="evaluate drum events against ground truth")
