@@ -433,3 +433,10 @@ Planには以下を含める。
 OSSについては古い情報を前提にせず、現在のRepository、License、対応Python Version、メンテナンス状況を確認する。
 
 計画をHuman Reviewに提出し、承認されるまでPoC実装を開始しない。
+
+## Active Technologies
+- Python 3.11 (uv で管理) + demucs 4.1.0 (torch, julius, pyyaml を含む)、numpy、soundfile。システム依存として ffmpeg / ffprobe (Homebrew) (001-drum-stem-extraction)
+- ローカルファイルのみ。入力は `data/`、出力は `output/runs/<run_id>/` と `output/reports/` (どちらも `.gitignore` 済み) (001-drum-stem-extraction)
+
+## Recent Changes
+- 001-drum-stem-extraction: Added Python 3.11 (uv で管理) + demucs 4.1.0 (torch, julius, pyyaml を含む)、numpy、soundfile。システム依存として ffmpeg / ffprobe (Homebrew)
