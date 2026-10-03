@@ -362,6 +362,14 @@ Human Review
 次のTask
 ```
 
+### Planning Documents
+
+計画ドキュメントは以下のように役割を分ける。
+
+- `docs/poc-plan.md`: PoC 1〜3 全体の技術調査・技術選定・リスク・実装順序。各 PoC の `/speckit.plan` より先に作成し、Human Review で承認を得る。
+- `specs/<###-feature>/` (Spec Kit): PoC ごとの詳細な spec / plan / tasks。`docs/poc-plan.md` の技術選定を前提とし、矛盾する場合は `docs/poc-plan.md` を先に更新する。
+- `.specify/memory/constitution.md`: 全体に適用される原則。
+
 Claude Codeは要求が曖昧な場合に勝手に大規模実装しない。
 
 以下の場合はHuman Reviewを要求する。
