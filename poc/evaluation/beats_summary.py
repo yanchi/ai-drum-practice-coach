@@ -10,8 +10,8 @@ from typing import Any
 
 from poc.beat.run import load_beatgrid
 
-ADOPTED = "regularized_offset"  # the variant poc map uses
-VARIANTS = ("raw", "regularized", ADOPTED)
+ADOPTED = "regularized"  # the default of poc beats (no drum offset, PoC 3 Human Review)
+VARIANTS = ("raw", ADOPTED, "regularized_offset")
 TARGETS = {"beat_f": 0.95, "downbeat_f": 0.90, "bpm_pct": 2.0, "mapping": 0.95, "jitter_ms": 20.0}
 SONGS = 5
 FOUR_MINUTES = 240.0
@@ -154,7 +154,7 @@ def summarize_beats(evaluations_dir: Path, report_dir: Path) -> str:
             for name in VARIANTS
         ],
         "",
-        "## Mix vs drum stem input (regularized + offset)",
+        "## Mix vs drum stem input (regularized)",
         "",
         "| Input | Songs | Beat F | Downbeat F | Mapping accuracy |",
         "|---|---|---|---|---|",

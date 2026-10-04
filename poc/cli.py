@@ -214,7 +214,7 @@ def _cmd_beats(args: argparse.Namespace) -> int:
         args.output_dir,
         BeatThisEstimator(),
         regularize=not args.no_regularize,
-        offset=not args.no_offset,
+        offset=args.offset,
         transcriptions_dir=args.transcriptions_dir,
     )
     grid = load_beatgrid(out)
@@ -397,7 +397,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("poc1_run_dir", type=Path)
     p.add_argument("--input", choices=["mix", "drum_stem"], default="mix")
     p.add_argument("--no-regularize", action="store_true", help="use the raw downbeats")
-    p.add_argument("--no-offset", action="store_true", help="do not align the grid to the drums")
+    p.add_argument(
+        "--offset",
+        action="store_true",
+        help="shift the grid onto the drums of the latest drum stem transcription",
+    )
     p.add_argument("--transcriptions-dir", type=Path, default=Path("output/transcriptions"))
     p.add_argument("--output-dir", type=Path, default=Path("output/beatgrids"))
     p.set_defaults(func=_cmd_beats)

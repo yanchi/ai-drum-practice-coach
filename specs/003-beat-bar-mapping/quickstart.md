@@ -10,7 +10,7 @@ uv run poc beats output/runs/<run_id>                    # output/beatgrids/<bea
 afplay output/beatgrids/<beatgrid_id>/check.wav          # 原曲 + 拍のクリック (小節の頭は高い音)
 ```
 
-小節の頭の高い音が、曲の小節の頭で鳴っているかを聴く。比較用に `--no-regularize` / `--no-offset` / `--input drum_stem` も作れる。
+小節の頭の高い音が、曲の小節の頭で鳴っているかを聴く。比較用に `--no-regularize` / `--offset` (ドラムに位置合わせ) / `--input drum_stem` も作れる。
 
 ## 2. 打撃イベントを小節・拍に対応付ける (US2)
 

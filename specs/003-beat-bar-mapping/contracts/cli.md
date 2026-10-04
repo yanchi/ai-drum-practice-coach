@@ -10,7 +10,7 @@ PoC 1・2 の `poc` コマンドにサブコマンドを追加する。終了コ
 PoC 1 の run から拍と小節の頭を推定し、BeatGrid を作る (US1, US4)。
 
 ```text
-uv run poc beats <poc1_run_dir> [--input {mix,drum_stem}] [--no-regularize] [--no-offset] [--output-dir output/beatgrids]
+uv run poc beats <poc1_run_dir> [--input {mix,drum_stem}] [--no-regularize] [--offset] [--output-dir output/beatgrids]
 ```
 
 | 引数 | 既定値 | 説明 |
@@ -18,7 +18,7 @@ uv run poc beats <poc1_run_dir> [--input {mix,drum_stem}] [--no-regularize] [--n
 | `poc1_run_dir` | (必須) | PoC 1 の run ディレクトリ |
 | `--input` | `mix` | `mix` = PoC 1 の入力曲 (原曲)、`drum_stem` = `drums.wav` |
 | `--no-regularize` | off | 小節の頭を整理しない (推定そのままを使う) |
-| `--no-offset` | off | ドラムへの位置合わせをしない。位置合わせには、この run の drum stem の最新の採譜結果 (PoC 2) が必要 |
+| `--offset` | off | グリッドを原曲のドラムに合わせてずらす。この run の drum stem の最新の採譜結果 (PoC 2) が必要。既定はずらさない (2026-10-04 Human Review、research R-14) |
 
 **成功時**: `<output-dir>/<beatgrid_id>/` に次を作り、ディレクトリの絶対パスを標準出力に出す。標準エラー出力に BPM・拍子・補った拍の数・整理で変わった小節の頭の数・補正量を出す。
 
@@ -27,7 +27,7 @@ beatgrid.json   # BeatGrid
 check.wav       # 原曲 (−6 dB) + 拍のクリック (小節の頭 1600 Hz / ほか 1000 Hz)
 ```
 
-**失敗時**: run ディレクトリが不正 (2)、位置合わせ用の採譜結果がない (2、`--no-offset` を案内)、推定中のエラー (1)。
+**失敗時**: run ディレクトリが不正 (2)、`--offset` で採譜結果がない (2)、推定中のエラー (1)。
 
 ## `poc map`
 

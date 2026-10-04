@@ -133,7 +133,7 @@ Beat This! と TD-17 がなくても動くよう、合成した拍の列・小�
 - [X] T038 Developer: tap beats for all 5 songs with `poc record --tap-beats`, noting the time per song (SC-005, SC-009)
 - [ ] T039 Developer: annotate beats by hand in 2–3 songs (B・BLUE and one 187 BPM song at least), one section of about 8 bars each, with `poc annotate --beats` (SC-004, SC-005; spec Clarifications 2026-10-04) — **skipped** 2026-10-04: the developer was not confident marking beats by hand; SC-004 and the tap jitter of SC-005 stay unmeasured (docs/research/poc3-evaluation.md)
 - [X] T040 Run `poc beats` (mix and drum_stem) and `poc evaluate-beats --taps` for the 5 songs and `poc evaluate-beats --annotation` for the hand-marked songs, `poc check-beats` on one song (SC-007), then `poc summarize-beats` — taps for 5 songs, mix and drum_stem; no hand-marked evaluations
-- [X] T041 Write `docs/research/poc3-evaluation.md`: SC-001〜SC-009, per-song beat / downbeat F-measure for the raw / regularized / regularized + offset variants, BPM error, meter, mapping accuracy, tap jitter, mix vs drum stem, processing time / memory, limitations (rock only, 4/4 only, one tapper), and a Go/No-Go recommendation (no audio or song file paths) — draft written; waiting for Human Review
+- [X] T041 Write `docs/research/poc3-evaluation.md`: SC-001〜SC-009, per-song beat / downbeat F-measure for the raw / regularized / regularized + offset variants, BPM error, meter, mapping accuracy, tap jitter, mix vs drum stem, processing time / memory, limitations (rock only, 4/4 only, one tapper), and a Go/No-Go recommendation (no audio or song file paths) — conditional Go approved 2026-10-04; `poc beats` defaults to no drum offset
 
 ---
 

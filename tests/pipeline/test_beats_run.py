@@ -49,7 +49,12 @@ def estimator_for(beats, skip=(9,)):
 def test_run_beats_writes_grid_and_check_wav(poc1_run, tmp_path):
     run_dir, transcriptions, beats = poc1_run
     out = run_beats(
-        run_dir, "mix", tmp_path / "out", estimator_for(beats), transcriptions_dir=transcriptions
+        run_dir,
+        "mix",
+        tmp_path / "out",
+        estimator_for(beats),
+        offset=True,
+        transcriptions_dir=transcriptions,
     )
     grid = json.loads((out / "beatgrid.json").read_text())
     assert (out / "check.wav").exists()
@@ -70,8 +75,8 @@ def test_run_beats_writes_grid_and_check_wav(poc1_run, tmp_path):
 
 def test_run_beats_options(poc1_run, tmp_path):
     run_dir, transcriptions, beats = poc1_run
-    no_offset = run_beats(
-        run_dir, "drum_stem", tmp_path / "a", estimator_for(beats), offset=False, regularize=False
+    no_offset = run_beats(  # no offset by default; needs no transcription
+        run_dir, "drum_stem", tmp_path / "a", estimator_for(beats), regularize=False
     )
     grid = json.loads((no_offset / "beatgrid.json").read_text())
     assert grid["offset"] == {"applied_ms": 0.0, "from_transcription_id": None}
@@ -79,5 +84,10 @@ def test_run_beats_options(poc1_run, tmp_path):
     assert grid["input"]["kind"] == "drum_stem"
     with pytest.raises(UserInputError):
         run_beats(
-            run_dir, "mix", tmp_path / "b", estimator_for(beats), transcriptions_dir=tmp_path / "x"
+            run_dir,
+            "mix",
+            tmp_path / "b",
+            estimator_for(beats),
+            offset=True,
+            transcriptions_dir=tmp_path / "x",
         )

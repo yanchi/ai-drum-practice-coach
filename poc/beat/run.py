@@ -40,7 +40,7 @@ def run_beats(
     estimator: BeatEstimator,
     *,
     regularize: bool = True,
-    offset: bool = True,
+    offset: bool = False,  # aligning to the drums is opt-in (PoC 3 Human Review)
     transcriptions_dir: Path = Path("output/transcriptions"),
     now: datetime | None = None,
 ) -> Path:
