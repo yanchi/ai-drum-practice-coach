@@ -441,6 +441,8 @@ OSSについては古い情報を前提にせず、現在のRepository、License
 - ローカルファイルのみ。入力は `data/`、出力は `output/runs/<run_id>/` と `output/reports/` (どちらも `.gitignore` 済み) (001-drum-stem-extraction)
 - Python 3.11 (PoC 1 と同じ。librosa 0.11 / scipy 1.17 になる。research R-04) + PoC 1 の依存 + adtof-pytorch (git `85c192e`)、librosa、pretty_midi、scipy、**sounddevice、python-rtmidi (新規)** (002-drum-event-extraction)
 - ローカルファイルのみ。`output/transcriptions/`、`output/recordings/`、`output/evaluations/`、`output/reports/`、手動アノテーションは `data/annotations/` (すべて `.gitignore` 済み) (002-drum-event-extraction)
+- Python 3.11 (PoC 1・2 と同じ) + PoC 2 までの依存のみ (beat-this 1.1.0 は PoC 2 で追加済み)。**新しい依存はない** (003-beat-bar-mapping)
+- ローカルファイルのみ。`output/beatgrids/`、`output/references/`、`output/beat_evaluations/`、`output/recordings/` (拍を叩いた録音)、`output/reports/`、手で付けた正解は `data/annotations/` (すべて `.gitignore` 済み) (003-beat-bar-mapping)
 
 ## Recent Changes
 - 001-drum-stem-extraction: Added Python 3.11 (uv で管理) + demucs 4.1.0 (torch, julius, pyyaml を含む)、numpy、soundfile。システム依存として ffmpeg / ffprobe (Homebrew)
