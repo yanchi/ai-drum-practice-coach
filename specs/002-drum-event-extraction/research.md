@@ -227,3 +227,10 @@ Roland TD-17 のサポート情報
 - **Decision**: HiHat の検出閾値を 0.22 (ADTOF の既定) から 0.12 に下げる。Kick 0.22 / Snare 0.24 は ADTOF の既定のまま。`poc/transcription/adtof_adapter.py` の `TUNED_THRESHOLDS` で ADTOF の既定に上書きする。
 - **Rationale**: 5 曲の leave-one-out で HiHat の F1 が 0.846 → 0.861 に上がった。Kick / Snare は改善がないか誤差の範囲だった (R-16 の方針どおり、5 曲そろってから決めた)。閾値の変更後も、伴奏に残った元のドラムからの検出は 0。
 - **詳細**: `docs/research/poc2-evaluation.md`。
+
+## R-21: 手動アノテーションのツール (2026-10-04)
+
+- **Decision**: Sonic Visualiser の代わりに、`poc annotate` でブラウザのツール (`poc/evaluation/annotator.html`) を開く。localhost だけで動き、`annotation.yaml` の区間と音源を読み込んだ状態で始まり、「保存」で `hits.csv` を書く。
+- **Rationale**: 開発者が Sonic Visualiser の操作に迷った。キック・スネア・ハイハットの帯域ごとのレーンをクリックすると楽器が決まり、印は音の立ち上がりの始まりに自動で合う。リアルタイムに叩いて付ける方式は、反応の遅れ (約 20 ms のばらつき) がそのまま正解の誤差になるため採らない。
+- **初版の不具合**: 波形のフレーム長を 1 ms として扱っていた (44.1 kHz では 44 サンプル = 0.998 ms)。区間の後ろほど印が遅れ、区間の終わりで最大 13 ms。修正後、付け終わっていた B・BLUE の 50 打の時刻を誤差の分だけ計算で戻した (元のファイルは `hits.before-frame-fix.csv` として残した)。誤った時刻での評価は集計から外した (`output/archive/annotation-before-fix/`)。
+- **結果**: `docs/research/poc2-evaluation.md` の「手動アノテーション」。

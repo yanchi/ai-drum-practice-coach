@@ -131,9 +131,9 @@ TD-17 がなくても動くよう、合成音源・合成 MIDI でテストす�
 - [x] T041 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest`, `uv run pytest -m slow`; fix failures
 - [x] T042 Follow `specs/002-drum-event-extraction/quickstart.md` end to end and fix steps that do not work as written
 - [x] T043 Developer: record and evaluate all 5 songs of the evaluation set with TD-17, noting the time spent per song (SC-003, SC-007) — NO. NEW YORK / B・BLUE / ONLY YOU / WORKING MAN / PLASTIC BOMB done (research R-17, R-19). PLASTIC BOMB replaces 誇り高きものへ (spec Clarifications 2026-10-04). Time per song for the last three songs is estimated from the timestamps (research R-19)
-- [ ] T044 Developer: manually annotate 1〜2 PoC 1 songs (3 sections × 4 bars) and run `poc evaluate --annotation` (SC-003, SC-009)
+- [x] T044 Developer: manually annotate 1〜2 PoC 1 songs (3 sections × 4 bars) and run `poc evaluate --annotation` (SC-003, SC-009) — B・BLUE 1 section only (50 hits) with `poc annotate`; accepted in Human Review 2026-10-04. The other 2 sections stay optional
 - [x] T045 Run `poc transcribe` twice on one PoC 1 run and `poc check-events` (SC-005) — B・BLUE: 1683 events each, 0 mismatches, PASS (research R-19)
-- [ ] T046 Run `poc tune-thresholds`, then `poc summarize-events` (SC-001 uses the leave-one-out F1 with tuned thresholds; also report the default-threshold F1), and write `docs/research/poc2-evaluation.md`: SC-001〜SC-009, per-instrument metrics for drum_stem vs mix, residual drum hits, ghost notes, strength correlation, alignment quality, processing time / memory, limitations (electronic drum timbre, rock only, small manual set), and a Go/No-Go recommendation (no audio or song file paths) — written; conditional Go and HiHat threshold 0.12 approved 2026-10-04. Update after T044 settles SC-003 / SC-009
+- [x] T046 Run `poc tune-thresholds`, then `poc summarize-events` (SC-001 uses the leave-one-out F1 with tuned thresholds; also report the default-threshold F1), and write `docs/research/poc2-evaluation.md`: SC-001〜SC-009, per-instrument metrics for drum_stem vs mix, residual drum hits, ghost notes, strength correlation, alignment quality, processing time / memory, limitations (electronic drum timbre, rock only, small manual set), and a Go/No-Go recommendation (no audio or song file paths) — Go and HiHat threshold 0.12 approved 2026-10-04
 
 ---
 
