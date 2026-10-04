@@ -188,7 +188,32 @@ def _cmd_tune_thresholds(args: argparse.Namespace) -> int:
 
 
 def _cmd_beats(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.beat.beat_this_adapter import BeatThisEstimator
+    from poc.beat.run import load_beatgrid, run_beats
+
+    out = run_beats(
+        args.poc1_run_dir,
+        args.input,
+        args.output_dir,
+        BeatThisEstimator(),
+        regularize=not args.no_regularize,
+        offset=not args.no_offset,
+        transcriptions_dir=args.transcriptions_dir,
+    )
+    grid = load_beatgrid(out)
+    inferred = sum(b.inferred for b in grid.beats)
+    print(
+        f"bpm={grid.bpm} meter={grid.meter} beats={len(grid.beats)} (filled {inferred}) "
+        f"bars={len(grid.downbeats)} downbeats={grid.downbeat_source} "
+        f"(changed {grid.regularization['changed_downbeats']}, "
+        f"phase changes {len(grid.regularization['phase_changes'])}) "
+        f"offset={grid.offset['applied_ms']}ms",
+        file=sys.stderr,
+    )
+    for warning in grid.warnings:
+        print(f"warning: {warning.code}: {warning.message}", file=sys.stderr)
+    print(out.resolve())
+    return 0
 
 
 def _cmd_map(args: argparse.Namespace) -> int:
