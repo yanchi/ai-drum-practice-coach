@@ -121,6 +121,14 @@ def _print_evaluation(out: Path) -> None:
         print(f"residual original drums: {data['residual_drum_hits']['counts']}", file=sys.stderr)
 
 
+def _cmd_annotate(args: argparse.Namespace) -> int:
+    from poc.evaluation.annotate import annotation_config, serve
+
+    config = annotation_config(args.annotation_yaml, args.runs_dir, args.source)
+    serve(config, port=args.port, open_browser=not args.no_browser)
+    return 0
+
+
 def _cmd_evaluate(args: argparse.Namespace) -> int:
     from poc.errors import UserInputError
     from poc.evaluation.events_eval import evaluate_annotation, evaluate_recording
@@ -225,6 +233,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--click", action="store_true", help="play a click on every song beat (Beat This!)"
     )
     p.set_defaults(func=_cmd_record)
+
+    p = sub.add_parser("annotate", help="mark hits of a song in the browser (manual annotation)")
+    p.add_argument("annotation_yaml", type=Path)
+    p.add_argument(
+        "--source",
+        choices=["drums", "song"],
+        default="drums",
+        help="play the PoC 1 drum stem (default) or the original song",
+    )
+    p.add_argument("--runs-dir", type=Path, default=Path("output/runs"))
+    p.add_argument("--port", type=int, default=0, help="default: any free port")
+    p.add_argument("--no-browser", action="store_true")
+    p.set_defaults(func=_cmd_annotate)
 
     p = sub.add_parser("evaluate", help="evaluate drum events against ground truth")
     p.add_argument("recording_dir", type=Path, nargs="?")

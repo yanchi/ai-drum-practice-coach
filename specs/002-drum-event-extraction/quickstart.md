@@ -54,10 +54,7 @@ uv run poc evaluate output/recordings/<recording_id>
 
 ## 3. 市販曲の手動アノテーション (1〜2 曲)
 
-1. Sonic Visualiser などで原曲を開き、Verse・Chorus・Fill 前後の 4 小節ずつ (計 3 区間) で打撃に印を付ける
-   (ラベル: `k` / `s` / `h`、スネアのゴーストノートは `sg`)
-2. 時刻とラベルを CSV で書き出し、`data/annotations/<名前>/hits.csv` に置く
-3. 同じフォルダに `annotation.yaml` を書く:
+1. `data/annotations/<名前>/annotation.yaml` に区間を書く (Verse・Chorus・Fill 前後の 4 小節ずつ、計 3 区間):
 
    ```yaml
    schema_version: 1
@@ -69,7 +66,18 @@ uv run poc evaluate output/recordings/<recording_id>
    hits_csv: hits.csv
    ```
 
-4. 評価する:
+2. アノテーション用のページを開く (ブラウザが開く。音源は手元の Mac から出ない):
+
+   ```bash
+   uv run poc annotate data/annotations/<名前>/annotation.yaml            # PoC 1 の drums.wav を再生
+   uv run poc annotate data/annotations/<名前>/annotation.yaml --source song   # 原曲を再生
+   ```
+
+   区間をスロー再生しながら、キック・スネア・ハイハットのレーンをクリックして打撃に印を付ける (Shift+クリックでスネアのゴーストノート `sg`)。
+   印は音の立ち上がりの始まりに自動で合う。シンバルとタムには印を付けない。「保存」で `hits.csv` が `annotation.yaml` の隣に書かれる。
+   Sonic Visualiser などで作った `time_sec,label` の CSV (ラベル `k` / `s` / `h` / `sg`) を置いてもよい。
+
+3. 評価する:
 
    ```bash
    uv run poc evaluate --annotation data/annotations/<名前>/annotation.yaml
