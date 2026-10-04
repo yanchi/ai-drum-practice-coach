@@ -1,8 +1,8 @@
-"""Beat / downbeat positions of a PoC 1 song with Beat This! (docs/poc-plan.md).
+"""Beats for the play-along click of `poc record --click` (PoC 2 research R-18).
 
 The song is rebuilt as drums.wav + accompaniment.wav of the PoC 1 run, so the beat times
 share the timeline of the accompaniment played back by `poc record`. Results are cached in
-<run>/beats.json. Beat This! objects stay inside this module."""
+<run>/beats.json. PoC 3 builds its BeatGrid with poc/beat/run.py instead."""
 
 from __future__ import annotations
 
@@ -14,10 +14,11 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from poc.beat.beat_this_adapter import CHECKPOINT, detect_beats
+from poc.beat.grid import drum_offset_sec, fill_beat_gaps
 from poc.errors import UserInputError
 
 BEATS_FILE = "beats.json"
-CHECKPOINT = "final0"
 
 
 def _load_song(poc1_run_dir: Path) -> tuple[np.ndarray, int]:
@@ -34,35 +35,6 @@ def _load_song(poc1_run_dir: Path) -> tuple[np.ndarray, int]:
         raise UserInputError(f"{poc1_run_dir}: drums.wav and accompaniment.wav sample rates differ")
     length = min(len(drums), len(accompaniment))
     return drums[:length] + accompaniment[:length], sr
-
-
-def detect_beats(signal: np.ndarray, sr: int) -> tuple[list[float], list[float]]:
-    """Beat and downbeat times in seconds (Beat This! with minimal post-processing)."""
-    from beat_this.inference import Audio2Beats
-
-    beats, downbeats = Audio2Beats(checkpoint_path=CHECKPOINT, device="cpu")(signal, sr)
-    return [round(float(t), 4) for t in beats], [round(float(t), 4) for t in downbeats]
-
-
-def fill_beat_gaps(
-    beats: list[float], max_missing: int = 3, tolerance: float = 0.15
-) -> list[float]:
-    """Insert evenly spaced beats where the tracker skipped 1 to `max_missing` beats.
-
-    A gap is filled when it is close (within `tolerance` of the median interval per beat)
-    to a whole number of median intervals. Longer gaps (e.g. a section without drums) stay."""
-    if len(beats) < 3:
-        return list(beats)
-    median = float(np.median(np.diff(beats)))
-    out = [beats[0]]
-    for t in beats[1:]:
-        gap = t - out[-1]
-        k = int(round(gap / median))
-        if 2 <= k <= max_missing + 1 and abs(gap / k - median) < tolerance * median:
-            start = out[-1]
-            out += [round(start + gap * j / k, 4) for j in range(1, k)]
-        out.append(t)
-    return out
 
 
 def load_or_detect_beats(poc1_run_dir: Path) -> dict:
@@ -87,22 +59,6 @@ def load_or_detect_beats(poc1_run_dir: Path) -> dict:
     }
     path.write_text(json.dumps(data, indent=1) + "\n")
     return data
-
-
-def drum_offset_sec(beats: list[float], onsets: list[float], window: float = 0.06) -> float | None:
-    """Median of (onset - nearest beat) over the onsets within `window` of a beat.
-
-    Beat This! places beats on a 20 ms frame grid and tends to lag the drum onsets, so the
-    click is shifted by this offset to sound with the original drums."""
-    if len(beats) < 2 or not onsets:
-        return None
-    b = np.asarray(beats)
-    t = np.asarray(onsets)
-    i = np.clip(np.searchsorted(b, t), 1, len(b) - 1)
-    nearest = np.where(np.abs(b[i] - t) < np.abs(b[i - 1] - t), b[i], b[i - 1])
-    diff = t - nearest
-    diff = diff[np.abs(diff) <= window]
-    return round(float(np.median(diff)), 4) if len(diff) else None
 
 
 def latest_drum_stem_onsets(poc1_run_id: str, transcriptions_dir: Path) -> tuple[str, list[float]]:

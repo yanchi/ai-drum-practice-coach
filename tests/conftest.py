@@ -111,3 +111,58 @@ class FakeTranscriber:
             params={"thresholds": self.thresholds},
             device="cpu",
         )
+
+
+# --- PoC 3 helpers ---
+
+
+def synthetic_beats(
+    bpm: float, sec: float, start: float = 0.5, jitter_ms: float = 0, seed: int = 0
+):
+    """Beat times at a steady tempo, optionally with random timing jitter."""
+    rng = np.random.default_rng(seed)
+    step = 60 / bpm
+    times = np.arange(start, sec, step)
+    if jitter_ms:
+        times = times + rng.normal(0, jitter_ms / 1000, len(times))
+    return [round(float(t), 4) for t in times]
+
+
+def downbeat_activation(
+    n_beats: int, phase: int = 0, flips=None, noise: float = 0.0, seed: int = 0
+):
+    """Per-beat downbeat activation: high where (i + phase) % 4 == 0.
+    `flips=[(from_beat, new_phase)]` changes the phase from that beat on."""
+    rng = np.random.default_rng(seed)
+    changes = dict(flips or [])
+    out = []
+    for i in range(n_beats):
+        phase = changes.get(i, phase)
+        value = 0.9 if (i + phase) % 4 == 0 else 0.05
+        out.append(float(np.clip(value + rng.normal(0, noise), 0.0, 1.0)))
+    return out
+
+
+class FakeBeatEstimator:
+    """Returns given beats / downbeats / activations without running a model."""
+
+    def __init__(self, beats, activation, downbeats=None):
+        self.beats = beats
+        self.activation = activation
+        self.downbeats = (
+            downbeats
+            if downbeats is not None
+            else [t for t, a in zip(beats, activation, strict=True) if a > 0.5]
+        )
+        self.calls = 0
+
+    def estimate(self, signal, sr):
+        from poc.beat.base import BeatEstimate
+
+        self.calls += 1
+        return BeatEstimate(
+            beats=list(self.beats),
+            downbeats=list(self.downbeats),
+            downbeat_activation=list(self.activation),
+            info={"method": "fake", "version": "0", "checkpoint": "fake", "device": "cpu"},
+        )
