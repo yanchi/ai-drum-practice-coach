@@ -205,6 +205,7 @@ def save_capture(
     recording_id: str,
     metadata: dict,
     extra_files: dict[str, str] | None = None,
+    save_audio: bool = True,
 ) -> Path:
     """Write drums.wav, midi_notes.json and recording.json (+ extra text files) atomically."""
     output_dir = Path(output_dir)
@@ -213,7 +214,8 @@ def save_capture(
     partial_dir = output_dir / f"{recording_id}.partial"
     partial_dir.mkdir()
     try:
-        sf.write(partial_dir / "drums.wav", result.audio.T, SAMPLE_RATE, subtype="FLOAT")
+        if save_audio:
+            sf.write(partial_dir / "drums.wav", result.audio.T, SAMPLE_RATE, subtype="FLOAT")
         (partial_dir / "midi_notes.json").write_text(json.dumps(result.notes, indent=1) + "\n")
         record = {
             "schema_version": 1,
@@ -289,6 +291,72 @@ def record_play_along(
             "note_map": load_note_map().to_dict(),
             "click": click_info,
         },
+    )
+
+
+def record_beat_taps(
+    poc1_run_dir: Path,
+    device_name: str,
+    midi_port_name: str,
+    output_dir: Path,
+    calibrations_dir: Path = Path("output/recordings/calibrations"),
+    max_seconds: float | None = None,
+) -> Path:
+    """Play the original song (no beat clicks) and record beats tapped on the TD-17
+    (specs/003-beat-bar-mapping R-06). Saves the MIDI and beat_groundtruth.json, no audio."""
+    from poc.audio.decode import load_song
+    from poc.recording.mix import load_calibration
+    from poc.recording.taps import taps_to_groundtruth
+
+    poc1_run_dir = Path(poc1_run_dir)
+    run = load_poc1_run(poc1_run_dir)
+    calibration_id, calibration = load_calibration(calibrations_dir)
+    device = find_audio_device(device_name)
+    port_index = find_midi_port(midi_port_name)
+    song, audio, _ = load_song(Path(run["song"]["path"]))
+    playback, count_in = build_playback(
+        resample(audio.astype(np.float32), song.sample_rate, SAMPLE_RATE), SAMPLE_RATE
+    )
+    if max_seconds is not None:
+        playback = playback[:, : count_in + int(max_seconds * SAMPLE_RATE)]
+    seconds = playback.shape[1] / SAMPLE_RATE
+    result = capture(
+        playback,
+        device,
+        port_index,
+        f"Recording {seconds:.0f} s: count-in ({COUNT_IN_BEATS} clicks), then the song. "
+        "Tap the hi-hat on every beat and add the kick on each downbeat. Ctrl+C to stop early.",
+    )
+    shift_sec = count_in / SAMPLE_RATE + result.input_latency_sec + result.output_latency_sec
+    groundtruth = taps_to_groundtruth(
+        result.notes,
+        load_note_map(),
+        calibration,
+        calibration_id,
+        shift_sec,
+        run["run_id"],
+        duration_sec=song.duration_sec,
+    )
+    for warning in groundtruth.warnings:
+        print(f"warning: {warning.message}", file=sys.stderr)
+    now = datetime.now().astimezone()
+    return save_capture(
+        result,
+        output_dir,
+        f"{now:%Y%m%d-%H%M%S}_taps_{run['run_id'].split('_')[-1]}",
+        {
+            "kind": "beat_taps",
+            "poc1_run_id": run["run_id"],
+            "recorded_at": now.isoformat(timespec="seconds"),
+            "count_in_samples": count_in,
+            "device": device["name"],
+            "midi_port": midi_input_ports()[port_index],
+            "note_map": load_note_map().to_dict(),
+            "beats": len(groundtruth.beats),
+            "downbeats": len(groundtruth.downbeats),
+        },
+        extra_files={"beat_groundtruth.json": json.dumps(groundtruth.to_dict(), indent=1) + "\n"},
+        save_audio=False,
     )
 
 

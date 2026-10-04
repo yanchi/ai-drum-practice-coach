@@ -17,28 +17,37 @@ from poc.evaluation.groundtruth import LABELS
 
 PAGE = Path(__file__).with_name("annotator.html")
 VALID_LABELS = set(LABELS) | {"sg", "hg"}
+BEAT_LABELS = {"b", "d"}
 
 
-def annotation_config(annotation_yaml: Path, runs_dir: Path, source: str) -> dict:
-    """Regions, existing hits and the audio path for the page. `source` is "drums" (the
-    PoC 1 drum stem) or "song" (the original file); both share one timeline."""
+def annotation_config(
+    annotation_yaml: Path, runs_dir: Path, source: str, beats: bool = False
+) -> dict:
+    """Regions, existing marks and the audio path for the page. `source` is "drums" (the
+    PoC 1 drum stem) or "song" (the original file); both share one timeline. With `beats`,
+    the page marks beats / downbeats in `beat_regions` (PoC 3) instead of drum hits."""
     annotation_yaml = Path(annotation_yaml)
     data = yaml.safe_load(annotation_yaml.read_text()) or {}
     run_dir = Path(runs_dir) / str(data.get("poc1_run_id", ""))
     if not (run_dir / "run.json").exists():
         raise UserInputError(f"{annotation_yaml}: PoC 1 run {data.get('poc1_run_id')!r} not found")
-    regions = sorted([float(a), float(b)] for a, b in data.get("regions") or [])
+    key = "beat_regions" if beats else "regions"
+    regions = sorted([float(a), float(b)] for a, b in data.get(key) or [])
     if not regions:
-        raise UserInputError(f"{annotation_yaml}: no regions")
+        raise UserInputError(f"{annotation_yaml}: no {key}")
     if source == "drums":
         audio = run_dir / "drums.wav"
     else:
         audio = Path(json.loads((run_dir / "run.json").read_text())["song"]["path"])
     if not audio.exists():
         raise UserInputError(f"audio not found: {audio}")
-    hits_path = annotation_yaml.parent / str(data.get("hits_csv", "hits.csv"))
+    if beats:
+        hits_path = annotation_yaml.parent / "beats.csv"
+    else:
+        hits_path = annotation_yaml.parent / str(data.get("hits_csv", "hits.csv"))
     return {
         "name": annotation_yaml.parent.name,
+        "mode": "beats" if beats else "hits",
         "regions": regions,
         "audio": audio,
         "hits_path": hits_path,
@@ -46,8 +55,8 @@ def annotation_config(annotation_yaml: Path, runs_dir: Path, source: str) -> dic
     }
 
 
-def write_hits(hits_path: Path, csv_text: str) -> int:
-    """Validate `time_sec,label` rows and write them. Returns the number of hits."""
+def write_hits(hits_path: Path, csv_text: str, labels: set[str] = VALID_LABELS) -> int:
+    """Validate `time_sec,label` rows and write them sorted by time. Returns the row count."""
     rows = []
     for line_no, line in enumerate(csv_text.splitlines(), start=1):
         if not line.strip() or (line_no == 1 and line.startswith("time")):
@@ -57,11 +66,16 @@ def write_hits(hits_path: Path, csv_text: str) -> int:
             time_sec = float(time_text)
         except ValueError:
             raise UserInputError(f"line {line_no}: invalid time {time_text!r}") from None
-        if label.strip() not in VALID_LABELS:
+        if label.strip() not in labels:
             raise UserInputError(f"line {line_no}: invalid label {label!r}")
-        rows.append(f"{time_sec:.3f},{label.strip()}")
-    Path(hits_path).write_text("time_sec,label\n" + "".join(r + "\n" for r in rows))
+        rows.append((time_sec, label.strip()))
+    rows.sort()
+    Path(hits_path).write_text("time_sec,label\n" + "".join(f"{t:.3f},{lab}\n" for t, lab in rows))
     return len(rows)
+
+
+def write_beats(beats_path: Path, csv_text: str) -> int:
+    return write_hits(beats_path, csv_text, BEAT_LABELS)
 
 
 def serve(config: dict, port: int = 0, open_browser: bool = True) -> None:
@@ -77,7 +91,7 @@ def serve(config: dict, port: int = 0, open_browser: bool = True) -> None:
             if self.path == "/":
                 self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
             elif self.path == "/config":
-                public = {k: config[k] for k in ("name", "regions", "hits_csv")}
+                public = {k: config[k] for k in ("name", "mode", "regions", "hits_csv")}
                 self._send(200, json.dumps(public).encode(), "application/json")
             elif self.path == "/audio":
                 self._send(200, Path(config["audio"]).read_bytes(), "application/octet-stream")
@@ -85,17 +99,18 @@ def serve(config: dict, port: int = 0, open_browser: bool = True) -> None:
                 self._send(404, b"not found", "text/plain")
 
         def do_POST(self):  # noqa: N802
-            if self.path != "/hits":
+            writers = {"/hits": write_hits, "/beats": write_beats}
+            if self.path not in writers:
                 self._send(404, b"not found", "text/plain")
                 return
             body = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode()
             try:
-                count = write_hits(config["hits_path"], body)
+                count = writers[self.path](config["hits_path"], body)
             except UserInputError as err:
                 self._send(400, str(err).encode(), "text/plain; charset=utf-8")
                 return
             config["hits_csv"] = body
-            print(f"saved {count} hits to {config['hits_path']}", flush=True)
+            print(f"saved {count} marks to {config['hits_path']}", flush=True)
             self._send(200, json.dumps({"saved": count}).encode(), "application/json")
 
         def log_message(self, *args):  # keep the terminal quiet

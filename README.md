@@ -42,6 +42,19 @@ uv run poc evaluate output/recordings/<recording_id>     # 打撃イベントを
 uv run poc summarize-events                              # output/reports/poc2_summary.md に Success Criteria の判定
 ```
 
+## PoC 3: Beat / Bar Mapping
+
+原曲から拍と小節の頭を推定し (Beat This!)、PoC 2 の打撃イベントに小節・拍・グリッド位置を付けた Reference Performance Data を作る。詳細は [quickstart](specs/003-beat-bar-mapping/quickstart.md)。
+
+```bash
+uv run poc beats output/runs/<run_id>                                     # beatgrid.json ・ check.wav (小節の頭は高いクリック)
+uv run poc map output/beatgrids/<beatgrid_id> output/transcriptions/<transcription_id>
+uv run poc bars output/references/<reference_id> 12 13                    # 12〜13 小節目の打撃
+uv run poc record output/runs/<run_id> --tap-beats                        # 原曲に合わせて拍を叩いて正解を作る
+uv run poc evaluate-beats output/beatgrids/<beatgrid_id> --taps output/recordings/<recording_id>
+uv run poc summarize-beats                                                # output/reports/poc3_summary.md
+```
+
 ## Directory
 
 ```text
@@ -50,7 +63,8 @@ poc/
 ├── separation/     # Source Separation (Demucs adapter)
 ├── transcription/  # Automatic Drum Transcription (PoC 2)
 ├── recording/      # TD-17 での録音・キャリブレーション (PoC 2)
-├── beat/           # Beat / Downbeat 解析 (録音用クリック、PoC 3)
+├── beat/           # Beat / Downbeat 解析・BeatGrid (PoC 3)、録音用クリック
+├── mapping/        # 打撃イベント → 小節・拍 (PoC 3)
 ├── evaluation/     # 実行記録・評価シート・集計
 └── fixtures/       # テスト用の小さな素材（著作物はコミットしない）
 tests/              # pytest (合成音源のみ使用)

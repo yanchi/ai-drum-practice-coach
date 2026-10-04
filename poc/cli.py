@@ -90,6 +90,23 @@ def _cmd_record(args: argparse.Namespace) -> int:
         return 0
     if args.poc1_run_dir is None:
         raise UserInputError("give a PoC 1 run directory, --calibrate, --check, or --list-devices")
+    if args.tap_beats:
+        from poc.recording.record import record_beat_taps
+
+        out = record_beat_taps(
+            args.poc1_run_dir,
+            args.device,
+            args.midi_port,
+            args.output_dir,
+            max_seconds=args.max_seconds,
+        )
+        data = json.loads((out / "recording.json").read_text())
+        print(
+            f"beats={data['beats']} downbeats={data['downbeats']} notes={data['note_count']}",
+            file=sys.stderr,
+        )
+        print(out.resolve())
+        return 0
     from poc.recording.record import record_play_along
 
     out = record_play_along(
@@ -124,7 +141,7 @@ def _print_evaluation(out: Path) -> None:
 def _cmd_annotate(args: argparse.Namespace) -> int:
     from poc.evaluation.annotate import annotation_config, serve
 
-    config = annotation_config(args.annotation_yaml, args.runs_dir, args.source)
+    config = annotation_config(args.annotation_yaml, args.runs_dir, args.source, beats=args.beats)
     serve(config, port=args.port, open_browser=not args.no_browser)
     return 0
 
@@ -243,15 +260,48 @@ def _cmd_bars(args: argparse.Namespace) -> int:
 
 
 def _cmd_evaluate_beats(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.evaluation.beats_eval import run_evaluate_beats
+
+    out = run_evaluate_beats(
+        args.beatgrid_dir,
+        args.output_dir,
+        taps_dir=args.taps,
+        annotation=args.annotation,
+        transcription_dir=args.transcription,
+        transcriptions_dir=args.transcriptions_dir,
+        tolerance_ms=args.tolerance_ms,
+    )
+    data = json.loads((out / "evaluation.json").read_text())
+    print(f"evaluation: {out.resolve()}", file=sys.stderr)
+    print("variant              beat F  downbeat F  bpm err%  meter  mapping", file=sys.stderr)
+    for v in data["variants"]:
+        cells = [v["beats"]["f_measure"], v["downbeats"]["f_measure"]]
+        text = "  ".join("  -   " if c is None else f"{c:.3f} " for c in cells)
+        print(
+            f"  {v['name']:<18s} {text}     {v['bpm_error_pct']}   {v['meter_match']}  "
+            f"{v['mapping']['accuracy']}",
+            file=sys.stderr,
+        )
+    if data["tap_jitter_ms"]:
+        print(f"tap jitter: {data['tap_jitter_ms']}", file=sys.stderr)
+    print(out.resolve())
+    return 0
 
 
 def _cmd_summarize_beats(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.evaluation.beats_summary import summarize_beats
+
+    print(summarize_beats(args.evaluations_dir, args.report_dir), end="")
+    return 0
 
 
 def _cmd_check_beats(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.evaluation.beats_summary import compare_beatgrids
+
+    n_a, n_b, diff, passed = compare_beatgrids(args.beatgrid_dir_a, args.beatgrid_dir_b)
+    result = "PASS" if passed else "FAIL"
+    print(f"beats_a={n_a} beats_b={n_b} max_diff_sec={diff:g} result={result}")
+    return 0 if passed else 1
 
 
 def build_parser() -> argparse.ArgumentParser:

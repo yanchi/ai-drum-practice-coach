@@ -95,20 +95,20 @@ Beat This! と TD-17 がなくても動くよう、合成した拍の列・小�
 
 ### Tests for User Story 3
 
-- [ ] T022 [P] [US3] Create `tests/unit/test_taps.py` for `taps_to_groundtruth(notes, note_map, calibration, shift_sec)` (research R-06): hi-hat notes (including pedal 44) become beats; a hi-hat with a kick within ±50 ms becomes a downbeat; calibration offsets per note are applied; double triggers are dropped (reuse `drop_double_triggers`); an interval more than 35% off the local median of 8 intervals produces a warning with its time; the region is from the first to the last beat
-- [ ] T023 [P] [US3] Create `tests/unit/test_beat_groundtruth.py` for `load_beat_annotation(annotation_yaml)`: reads `beat_regions` and `beats.csv` (`b` / `d`), keeps only rows inside the regions, rejects unknown labels and missing `beat_regions` (`UserInputError`); and for `write_beats(path, csv_text)` in `poc/evaluation/annotate.py` (validation like `write_hits`)
-- [ ] T024 [P] [US3] Create `tests/unit/test_beats_eval.py` for `evaluate_beatgrid(beatgrid_variant, groundtruth, tolerance_ms=70)`: F-measure with one-to-one matching; estimates outside the regions are ignored; BPM error % and meter match; `mapping_accuracy` counts an event as correct only when the bar start (±70 ms), beat in bar and grid all match, and is unaffected by a different first-bar numbering between estimate and truth; `tap_jitter(taps, manual)` returns median / p95 of matched differences
-- [ ] T025 [P] [US3] Create `tests/unit/test_beats_summary.py` for `summarize_beats`: latest evaluation per song, pooled beat / downbeat F-measure, SC-001〜SC-005 judgements with `INSUFFICIENT` when fewer than 5 songs or no manual annotation
+- [X] T022 [P] [US3] Create `tests/unit/test_taps.py` for `taps_to_groundtruth(notes, note_map, calibration, shift_sec)` (research R-06): hi-hat notes (including pedal 44) become beats; a hi-hat with a kick within ±50 ms becomes a downbeat; calibration offsets per note are applied; double triggers are dropped (reuse `drop_double_triggers`); an interval more than 35% off the local median of 8 intervals produces a warning with its time; the region is from the first to the last beat
+- [X] T023 [P] [US3] Create `tests/unit/test_beat_groundtruth.py` for `load_beat_annotation(annotation_yaml)`: reads `beat_regions` and `beats.csv` (`b` / `d`), keeps only rows inside the regions, rejects unknown labels and missing `beat_regions` (`UserInputError`); and for `write_beats(path, csv_text)` in `poc/evaluation/annotate.py` (validation like `write_hits`)
+- [X] T024 [P] [US3] Create `tests/unit/test_beats_eval.py` for `evaluate_beatgrid(beatgrid_variant, groundtruth, tolerance_ms=70)`: F-measure with one-to-one matching; estimates outside the regions are ignored; BPM error % and meter match; `mapping_accuracy` counts an event as correct only when the bar start (±70 ms), beat in bar and grid all match, and is unaffected by a different first-bar numbering between estimate and truth; `tap_jitter(taps, manual)` returns median / p95 of matched differences
+- [X] T025 [P] [US3] Create `tests/unit/test_beats_summary.py` for `summarize_beats`: latest evaluation per song, pooled beat / downbeat F-measure, SC-001〜SC-005 judgements with `INSUFFICIENT` when fewer than 5 songs or no manual annotation
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Create `poc/recording/taps.py` with `taps_to_groundtruth` (T022) returning `BeatGroundTruth` with `source="td17_taps"` and the alignment record
-- [ ] T027 [US3] In `poc/recording/record.py`, add `record_beat_taps(poc1_run_dir, device_name, midi_port_name, output_dir)`: playback = count-in + the decoded **original song** (no beat clicks), reuse `capture`; save `recording.json` (`kind: "beat_taps"`), `midi_notes.json` and `beat_groundtruth.json` (no drum audio); print tapping warnings to stderr; wire `record --tap-beats` in `poc/cli.py`
+- [X] T026 [US3] Create `poc/recording/taps.py` with `taps_to_groundtruth` (T022) returning `BeatGroundTruth` with `source="td17_taps"` and the alignment record
+- [X] T027 [US3] In `poc/recording/record.py`, add `record_beat_taps(poc1_run_dir, device_name, midi_port_name, output_dir)`: playback = count-in + the decoded **original song** (no beat clicks), reuse `capture`; save `recording.json` (`kind: "beat_taps"`), `midi_notes.json` and `beat_groundtruth.json` (no drum audio); print tapping warnings to stderr; wire `record --tap-beats` in `poc/cli.py`
 - [ ] T028 [US3] Developer: pilot `uv run poc record output/runs/20261004-004951_3e21c73e --tap-beats` (B・BLUE); check the warnings and that the beats sound right (render them with `add_beat_clicks` onto the song in a scratch WAV)
-- [ ] T029 [US3] Create `poc/evaluation/beat_groundtruth.py` with `load_beat_annotation` (T023); add `write_beats` and a `--beats` mode to `poc/evaluation/annotate.py` (`annotation_config` returns `beat_regions` and existing `beats.csv`; `POST /beats` saves)
-- [ ] T030 [US3] In `poc/evaluation/annotator.html`, add a beat mode (enabled when `/config` has `mode: "beats"`): only the full-waveform lane is clickable, click = beat `b`, Shift+click = downbeat `d`, marks snap to the attack start like the drum lanes, the region list comes from `beat_regions`, and Save posts to `beats`
-- [ ] T031 [US3] Create `poc/evaluation/beats_eval.py`: `evaluate_beatgrid`, `tap_jitter`, and `run_evaluate_beats(beatgrid_dir, taps_dir | annotation_yaml, transcription_dir, tolerance_ms, output_dir)` that rebuilds the `raw` / `regularized` / `regularized_offset` variants from the stored BeatGrid fields (no model rerun), computes the mapping accuracy with `poc/mapping/reference.py` against the ground-truth grid, adds `tap_jitter_ms` when a manual `beats.csv` exists for the same run, and writes `evaluation.json`; wire `evaluate-beats` in `poc/cli.py`
-- [ ] T032 [US3] Create `poc/evaluation/beats_summary.py` (`summarize_beats` → `output/reports/poc3_summary.md` / `.csv`, SC-001〜SC-009) and `compare_beatgrids` for `check-beats` (exact match of beats and downbeats); wire `summarize-beats` and `check-beats` in `poc/cli.py`
+- [X] T029 [US3] Create `poc/evaluation/beat_groundtruth.py` with `load_beat_annotation` (T023); add `write_beats` and a `--beats` mode to `poc/evaluation/annotate.py` (`annotation_config` returns `beat_regions` and existing `beats.csv`; `POST /beats` saves)
+- [X] T030 [US3] In `poc/evaluation/annotator.html`, add a beat mode (enabled when `/config` has `mode: "beats"`): only the full-waveform lane is clickable, click = beat `b`, Shift+click = downbeat `d`, marks snap to the attack start like the drum lanes, the region list comes from `beat_regions`, and Save posts to `beats`
+- [X] T031 [US3] Create `poc/evaluation/beats_eval.py`: `evaluate_beatgrid`, `tap_jitter`, and `run_evaluate_beats(beatgrid_dir, taps_dir | annotation_yaml, transcription_dir, tolerance_ms, output_dir)` that rebuilds the `raw` / `regularized` / `regularized_offset` variants from the stored BeatGrid fields (no model rerun), computes the mapping accuracy with `poc/mapping/reference.py` against the ground-truth grid, adds `tap_jitter_ms` when a manual `beats.csv` exists for the same run, and writes `evaluation.json`; wire `evaluate-beats` in `poc/cli.py`
+- [X] T032 [US3] Create `poc/evaluation/beats_summary.py` (`summarize_beats` → `output/reports/poc3_summary.md` / `.csv`, SC-001〜SC-009) and `compare_beatgrids` for `check-beats` (exact match of beats and downbeats); wire `summarize-beats` and `check-beats` in `poc/cli.py`
 
 **Checkpoint**: 1 曲で叩いた正解による評価が出て、集計に SC の判定が出る
 
@@ -120,15 +120,15 @@ Beat This! と TD-17 がなくても動くよう、合成した拍の列・小�
 
 **Independent Test**: 1 曲で `poc beats --input drum_stem` の BeatGrid を `evaluate-beats` にかけ、原曲入力と同じ形式の指標が出る
 
-- [ ] T033 [P] [US4] In `tests/pipeline/test_beats_run.py`, add a case for `input_kind="drum_stem"` (input path is `drums.wav`, `input.kind` recorded) and in `tests/unit/test_beats_summary.py` a case where the summary shows mix vs drum_stem F-measure side by side
-- [ ] T034 [US4] In `poc/evaluation/beats_summary.py`, group evaluations by `input.kind` and add a "mix vs drum stem" table to `poc3_summary.md`
+- [X] T033 [P] [US4] In `tests/pipeline/test_beats_run.py`, add a case for `input_kind="drum_stem"` (input path is `drums.wav`, `input.kind` recorded) and in `tests/unit/test_beats_summary.py` a case where the summary shows mix vs drum_stem F-measure side by side
+- [X] T034 [US4] In `poc/evaluation/beats_summary.py`, group evaluations by `input.kind` and add a "mix vs drum stem" table to `poc3_summary.md`
 
 ---
 
 ## Phase 7: Polish & Evaluation
 
-- [ ] T035 [P] Update `README.md` with a "PoC 3: Beat / Bar Mapping" section linking to `specs/003-beat-bar-mapping/quickstart.md`
-- [ ] T036 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest`, `uv run pytest -m slow`; fix failures
+- [X] T035 [P] Update `README.md` with a "PoC 3: Beat / Bar Mapping" section linking to `specs/003-beat-bar-mapping/quickstart.md`
+- [X] T036 Run `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest`, `uv run pytest -m slow`; fix failures
 - [ ] T037 Follow `specs/003-beat-bar-mapping/quickstart.md` end to end and fix steps that do not work as written
 - [ ] T038 Developer: tap beats for all 5 songs with `poc record --tap-beats`, noting the time per song (SC-005, SC-009)
 - [ ] T039 Developer: annotate beats by hand in 1–2 sections (about 8 bars each) with `poc annotate --beats`, starting with B・BLUE (SC-005)
