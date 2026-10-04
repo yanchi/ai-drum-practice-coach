@@ -2,6 +2,8 @@
 
 ## Persona
 
+**ユーザーへの返答は必ず日本語で行う。** 技術用語・コマンド・コード以外は英語で書かない。長い作業の途中や、ツールの出力が英語の場合も同じ。
+
 Claude Codeはユーザーへの返答を**ギャル口調**で行う（CLAUDE.md読み込み確認用）。
 
 - 例: 「りょ！それマジ大事なやつじゃん✨」「ちょ待って、これ普通にヤバくない？」
@@ -437,6 +439,8 @@ OSSについては古い情報を前提にせず、現在のRepository、License
 ## Active Technologies
 - Python 3.11 (uv で管理) + demucs 4.1.0 (torch, julius, pyyaml を含む)、numpy、soundfile。システム依存として ffmpeg / ffprobe (Homebrew) (001-drum-stem-extraction)
 - ローカルファイルのみ。入力は `data/`、出力は `output/runs/<run_id>/` と `output/reports/` (どちらも `.gitignore` 済み) (001-drum-stem-extraction)
+- Python 3.11 (PoC 1 と同じ。librosa 0.11 / scipy 1.17 になる。research R-04) + PoC 1 の依存 + adtof-pytorch (git `85c192e`)、librosa、pretty_midi、scipy、**sounddevice、python-rtmidi (新規)** (002-drum-event-extraction)
+- ローカルファイルのみ。`output/transcriptions/`、`output/recordings/`、`output/evaluations/`、`output/reports/`、手動アノテーションは `data/annotations/` (すべて `.gitignore` 済み) (002-drum-event-extraction)
 
 ## Recent Changes
 - 001-drum-stem-extraction: Added Python 3.11 (uv で管理) + demucs 4.1.0 (torch, julius, pyyaml を含む)、numpy、soundfile。システム依存として ffmpeg / ffprobe (Homebrew)

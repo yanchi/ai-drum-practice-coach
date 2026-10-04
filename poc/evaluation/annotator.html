@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drum Annotator</title>
+<!--
+  Manual annotation tool for PoC 2 (research R-13, quickstart step 3).
+  Start it with `uv run poc annotate data/annotations/<name>/annotation.yaml`: the song and the
+  regions are loaded and "保存" writes hits.csv next to annotation.yaml (localhost only).
+  Opened directly as a file, it falls back to choosing the files by hand and downloading hits.csv.
+-->
+<style>
+  :root {
+    --bg: #fafaf9; --panel: #ffffff; --text: #1c1917; --muted: #78716c; --line: #e7e5e4;
+    --wave: #a8a29e; --k: #dc2626; --s: #2563eb; --h: #16a34a; --region: #fef3c7; --head: #111827;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c0a09; --panel: #1c1917; --text: #f5f5f4; --muted: #a8a29e; --line: #292524;
+      --wave: #57534e; --k: #f87171; --s: #60a5fa; --h: #4ade80; --region: #422006; --head: #f9fafb;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  label.file { display: inline-flex; gap: 6px; align-items: center; }
+  button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--bg); color: var(--text); cursor: pointer; }
+  button.on { outline: 2px solid var(--s); }
+  button:disabled { opacity: .4; cursor: default; }
+  .muted { color: var(--muted); font-size: 12px; }
+  #regions button { min-width: 140px; }
+  canvas { width: 100%; display: block; border-radius: 6px; background: var(--panel); cursor: crosshair; touch-action: none; }
+  .legend span { display: inline-block; margin-right: 12px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 12px; }
+  #counts { font-variant-numeric: tabular-nums; }
+  .guide ol { margin: 4px 0; padding-left: 20px; }
+  #status { margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Drum Annotator <span class="muted">— PoC 2 手動アノテーション</span></h1>
+
+  <div class="panel guide">
+    <b>やり方</b>
+    <ol>
+      <li><kbd>Space</kbd> で区間を再生して聴く (50% のスロー・ループ再生)</li>
+      <li>キックが鳴った所を <b style="color:var(--k)">赤い段</b>、スネアは <b style="color:var(--s)">青い段</b>、ハイハットは <b style="color:var(--h)">緑の段</b> でクリック (印は音の立ち上がりの始まりに自動で合う)</li>
+      <li>間違えたら、その印をもう一度クリックで消す (<kbd>⌘Z</kbd> で元に戻す)</li>
+      <li>区間 1〜3 を順にやって (<kbd>→</kbd> で次の区間)、最後に「保存」</li>
+    </ol>
+    <span class="muted">シンバル (ライド・クラッシュ) とタムには印を付けない。聞き取れない音は付けなくてよい。</span>
+  </div>
+
+  <div class="panel" id="filePanel">
+    <div class="row">
+      <label class="file">音源 <input type="file" id="audioFile" accept="audio/*,.m4a,.wav"></label>
+      <label class="file">annotation.yaml <input type="file" id="yamlFile" accept=".yaml,.yml,text/yaml"></label>
+      <label class="file">既存の hits.csv (続きから) <input type="file" id="csvFile" accept=".csv,text/csv"></label>
+    </div>
+  </div>
+  <div class="muted" id="status">原曲 (または PoC 1 の drums.wav) と annotation.yaml を選んでください。音源はブラウザの外に送られません。</div>
+
+  <div class="panel">
+    <div class="row" id="regions"></div>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:8px">
+      <button id="play" disabled>▶ 再生 <kbd>Space</kbd></button>
+      <button id="restart" disabled>⏮ 区間の頭から <kbd>R</kbd></button>
+      <span>速度
+        <button data-rate="0.5">50%</button><button data-rate="0.75">75%</button><button data-rate="1">100%</button>
+      </span>
+      <label><input type="checkbox" id="loop" checked> ループ</label>
+      <label><input type="checkbox" id="snap" checked> 音の立ち上がりに吸着 (±25 ms)</label>
+      <button id="undo" disabled>↶ 元に戻す <kbd>⌘Z</kbd></button>
+      <button id="export" disabled>保存</button>
+    </div>
+    <canvas id="view" height="420"></canvas>
+    <div class="row muted" style="margin-top:8px">
+      <span class="legend">
+        <span><i class="dot" style="background:var(--k)"></i>K キック (低域レーン)</span>
+        <span><i class="dot" style="background:var(--s)"></i>S スネア (中域レーン) / Shift+クリックでゴースト sg</span>
+        <span><i class="dot" style="background:var(--h)"></i>H ハイハット (高域レーン)</span>
+      </span>
+    </div>
+    <div class="muted">
+      レーンをクリック = その楽器の打撃を追加 / 既存の印をクリック = 削除 / 一番上の波形をクリック = そこから再生 / <kbd>←</kbd><kbd>→</kbd> 区間の切り替え
+    </div>
+    <div class="muted" id="counts"></div>
+  </div>
+</main>
+
+<script>
+"use strict";
+const LANES = [
+  { key: "wave", name: "全体" },
+  { key: "k", name: "K 低域", color: "--k", filter: { type: "lowpass", f: 150, q: 0.7 } },
+  { key: "s", name: "S 中域", color: "--s", filter: { type: "bandpass", f: 700, q: 0.6 } },
+  { key: "h", name: "H 高域", color: "--h", filter: { type: "highpass", f: 6000, q: 0.7 } },
+];
+const PAD = 0.15;          // seconds shown before/after a region
+const SNAP = 0.025;        // snap window (s)
+const ATTACK_BACK = 0.03;  // how far back from the peak an attack may start (s)
+const ATTACK_LEVEL = 0.1;  // attack start = 10% of the rise
+const FRAME = 0.001;       // envelope frame (s)
+
+const state = {
+  buffer: null, url: null, fileName: "", regions: [], current: -1,
+  hits: [],                // {t, label}
+  undo: [], env: null,     // env: {start, end, lanes: {wave|k|s|h: Float32Array (per FRAME)}}
+  rate: 0.5, server: false,
+};
+const $ = (id) => document.getElementById(id);
+const audio = new Audio();
+audio.preservesPitch = true;
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function setStatus(text) { $("status").textContent = text; }
+
+function storageKey() { return "drum-annotator:" + state.fileName; }
+function save() {
+  try { localStorage.setItem(storageKey(), JSON.stringify(state.hits)); } catch (e) { /* ignore */ }
+}
+function restore() {
+  try {
+    const v = localStorage.getItem(storageKey());
+    if (v) { state.hits = JSON.parse(v); return true; }
+  } catch (e) { /* ignore */ }
+  return false;
+}
+
+// ---------- loading ----------
+async function loadAudio(blob, name) {
+  setStatus("音源を読み込み中…");
+  state.fileName = name;
+  if (state.url) URL.revokeObjectURL(state.url);
+  state.url = URL.createObjectURL(blob);
+  audio.src = state.url;
+  const ctx = new AudioContext();
+  try {
+    state.buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+  } catch (err) {
+    setStatus("この音源はデコードできませんでした: " + err.message);
+    return;
+  } finally { ctx.close(); }
+  const restored = state.hits.length === 0 && restore();
+  setStatus(`${name} (${state.buffer.duration.toFixed(1)} s)` + (restored ? ` — 途中の ${state.hits.length} 打を復元` : ""));
+  refresh();
+}
+$("audioFile").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) loadAudio(file, file.name);
+});
+
+$("yamlFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const regions = [];
+  for (const m of text.matchAll(/-\s*\[\s*([\d.]+)\s*,\s*([\d.]+)\s*\]/g)) regions.push([+m[1], +m[2]]);
+  if (!regions.length) { setStatus("annotation.yaml に regions が見つかりません"); return; }
+  state.regions = regions.sort((a, b) => a[0] - b[0]);
+  state.current = -1;
+  refresh();
+});
+
+$("csvFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const hits = parseCsv(await file.text());
+  pushUndo();
+  state.hits = hits;
+  save();
+  setStatus(`${file.name} から ${hits.length} 打を読み込みました`);
+  draw();
+});
+
+function parseCsv(text) {
+  const hits = [];
+  for (const line of text.split(/\r?\n/)) {
+    const [t, label] = line.split(",").map((x) => x && x.trim());
+    if (!t || isNaN(+t) || !["k", "s", "h", "sg"].includes(label)) continue;
+    hits.push({ t: +t, label });
+  }
+  return hits;
+}
+
+// ---------- regions ----------
+function refresh() {
+  const box = $("regions");
+  box.innerHTML = "";
+  if (!state.regions.length) { box.innerHTML = '<span class="muted">annotation.yaml を読み込むと区間が表示されます</span>'; }
+  state.regions.forEach(([a, b], i) => {
+    const btn = document.createElement("button");
+    btn.textContent = `区間 ${i + 1}: ${fmt(a)}–${fmt(b)}`;
+    btn.className = i === state.current ? "on" : "";
+    btn.disabled = !state.buffer;
+    btn.onclick = () => selectRegion(i);
+    box.appendChild(btn);
+  });
+  const ready = state.buffer && state.current >= 0;
+  ["play", "restart", "undo", "export"].forEach((id) => ($(id).disabled = !ready));
+  if (state.buffer && state.regions.length && state.current < 0) selectRegion(0);
+  updateCounts();
+}
+function fmt(t) { const m = Math.floor(t / 60); return `${m}:${(t - m * 60).toFixed(2).padStart(5, "0")}`; }
+
+async function selectRegion(i) {
+  if (!state.buffer || i < 0 || i >= state.regions.length) return;
+  state.current = i;
+  audio.pause();
+  const [a, b] = state.regions[i];
+  const start = Math.max(0, a - PAD), end = Math.min(state.buffer.duration, b + PAD);
+  setStatus(`区間 ${i + 1} を解析中…`);
+  state.env = await envelopes(start, end);
+  audio.currentTime = a;
+  setStatus(`区間 ${i + 1}: ${fmt(a)}–${fmt(b)}`);
+  refresh();
+  draw();
+}
+
+async function envelopes(start, end) {
+  const sr = state.buffer.sampleRate;
+  const s0 = Math.floor(start * sr), n = Math.floor((end - start) * sr);
+  const lanes = {};
+  for (const lane of LANES) {
+    const off = new OfflineAudioContext(1, n, sr);
+    const src = off.createBufferSource();
+    const slice = off.createBuffer(state.buffer.numberOfChannels, n, sr);
+    for (let c = 0; c < state.buffer.numberOfChannels; c++) {
+      slice.copyToChannel(state.buffer.getChannelData(c).subarray(s0, s0 + n), c);
+    }
+    src.buffer = slice;
+    let node = src;
+    if (lane.filter) {
+      const f = off.createBiquadFilter();
+      f.type = lane.filter.type; f.frequency.value = lane.filter.f; f.Q.value = lane.filter.q;
+      node.connect(f); node = f;
+    }
+    node.connect(off.destination);
+    src.start();
+    const data = (await off.startRendering()).getChannelData(0);
+    const step = Math.max(1, Math.round(FRAME * sr));
+    const env = new Float32Array(Math.ceil(n / step));
+    for (let j = 0; j < env.length; j++) {
+      let m = 0;
+      for (let k = j * step, e = Math.min(n, k + step); k < e; k++) m = Math.max(m, Math.abs(data[k]));
+      env[j] = m;
+    }
+    lanes[lane.key] = env;
+  }
+  return { start, end, lanes, frame: Math.max(1, Math.round(FRAME * sr)) / sr };
+}
+
+// ---------- snapping ----------
+function snapTime(t, laneKey) {
+  if (!$("snap").checked || !state.env) return t;
+  const env = state.env.lanes[laneKey === "sg" ? "s" : laneKey];
+  const frame = state.env.frame;  // actual frame length (FRAME rounded to whole samples)
+  const idx = (x) => Math.round((x - state.env.start) / frame);
+  const lo = Math.max(0, idx(t - SNAP)), hi = Math.min(env.length - 1, idx(t + SNAP));
+  // Find the loudest point near the click, then walk back to where the attack starts
+  // (ATTACK_LEVEL of the way up from the level just before it). Onset = start of the rise,
+  // the same reference as the TD-17 ground truth.
+  let p = lo;
+  for (let j = lo; j <= hi; j++) if (env[j] > env[p]) p = j;
+  const back = Math.max(0, p - Math.round(ATTACK_BACK / frame));
+  let floor = env[p];
+  for (let j = back; j <= p; j++) floor = Math.min(floor, env[j]);
+  if (env[p] <= floor) return +t.toFixed(3);
+  const threshold = floor + ATTACK_LEVEL * (env[p] - floor);
+  let j = p;
+  while (j > back && env[j - 1] > threshold) j--;
+  return +(state.env.start + j * frame).toFixed(3);
+}
+
+// ---------- drawing ----------
+const canvas = $("view");
+function geom() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const rulerH = 22, laneH = (h - rulerH) / LANES.length;
+  return { w, h, rulerH, laneH };
+}
+function xOf(t, w) { return ((t - state.env.start) / (state.env.end - state.env.start)) * w; }
+function tOf(x, w) { return state.env.start + (x / w) * (state.env.end - state.env.start); }
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  const { w, h, rulerH, laneH } = geom();
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const g = canvas.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  if (!state.env) {
+    g.fillStyle = css("--muted"); g.font = "14px sans-serif";
+    g.fillText("音源と annotation.yaml を読み込むと、ここに区間の波形が出ます", 16, 40);
+    return;
+  }
+  const [a, b] = state.regions[state.current];
+  // region background
+  g.fillStyle = css("--region");
+  g.fillRect(xOf(a, w), rulerH, xOf(b, w) - xOf(a, w), h - rulerH);
+  // ruler
+  g.fillStyle = css("--muted"); g.strokeStyle = css("--line"); g.font = "11px sans-serif";
+  for (let t = Math.ceil(state.env.start * 10) / 10; t <= state.env.end; t += 0.1) {
+    const x = xOf(t, w), major = Math.abs(t * 2 - Math.round(t * 2)) < 1e-6;
+    g.beginPath(); g.moveTo(x, rulerH - (major ? 10 : 5)); g.lineTo(x, rulerH); g.stroke();
+    if (major) g.fillText(t.toFixed(1), x + 2, 10);
+  }
+  // lanes
+  LANES.forEach((lane, i) => {
+    const y0 = rulerH + i * laneH, env = state.env.lanes[lane.key];
+    let peak = 1e-6; for (const v of env) peak = Math.max(peak, v);
+    g.strokeStyle = css("--line"); g.beginPath(); g.moveTo(0, y0); g.lineTo(w, y0); g.stroke();
+    g.fillStyle = lane.color ? css(lane.color) + "55" : css("--wave");
+    const mid = y0 + laneH / 2;
+    for (let x = 0; x < w; x++) {
+      const j0 = Math.floor((x / w) * env.length), j1 = Math.max(j0 + 1, Math.floor(((x + 1) / w) * env.length));
+      let m = 0; for (let j = j0; j < j1; j++) m = Math.max(m, env[j]);
+      const hh = (m / peak) * (laneH / 2 - 4);
+      g.fillRect(x, mid - hh, 1, hh * 2);
+    }
+    g.fillStyle = css("--muted"); g.font = "11px sans-serif"; g.fillText(lane.name, 4, y0 + 13);
+  });
+  // hits
+  for (const hit of state.hits) {
+    if (hit.t < state.env.start || hit.t > state.env.end) continue;
+    const laneIdx = { k: 1, s: 2, sg: 2, h: 3 }[hit.label];
+    const y0 = rulerH + laneIdx * laneH, x = xOf(hit.t, w);
+    const color = css(LANES[laneIdx].color);
+    g.strokeStyle = color; g.globalAlpha = hit.label === "sg" ? 0.5 : 1; g.lineWidth = 2;
+    if (hit.label === "sg") g.setLineDash([4, 3]);
+    g.beginPath(); g.moveTo(x, y0 + 2); g.lineTo(x, y0 + laneH - 2); g.stroke();
+    g.setLineDash([]); g.globalAlpha = 1; g.lineWidth = 1;
+    g.fillStyle = color; g.font = "bold 11px sans-serif"; g.fillText(hit.label, x + 3, y0 + laneH - 6);
+    // faint guide over the full waveform lane
+    g.strokeStyle = color + "66"; g.beginPath(); g.moveTo(x, rulerH); g.lineTo(x, rulerH + laneH); g.stroke();
+  }
+  // playhead
+  const px = xOf(audio.currentTime, w);
+  g.strokeStyle = css("--head"); g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(px, 0); g.lineTo(px, h); g.stroke(); g.lineWidth = 1;
+}
+
+function updateCounts() {
+  const inRegion = (t) => state.regions.some(([a, b]) => a <= t && t <= b);
+  const c = { k: 0, s: 0, sg: 0, h: 0 }, out = { n: 0 };
+  for (const hit of state.hits) { if (inRegion(hit.t)) c[hit.label]++; else out.n++; }
+  $("counts").textContent = `区間内: k ${c.k} / s ${c.s} / sg ${c.sg} / h ${c.h}` + (out.n ? ` (区間外 ${out.n} 打は評価に使われません)` : "");
+}
+
+// ---------- editing ----------
+function pushUndo() { state.undo.push(JSON.stringify(state.hits)); if (state.undo.length > 200) state.undo.shift(); }
+canvas.addEventListener("pointerdown", (e) => {
+  if (!state.env) return;
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const { w, rulerH, laneH } = geom();
+  const laneIdx = Math.floor((y - rulerH) / laneH);
+  const t = tOf(x, w);
+  if (y < rulerH || laneIdx === 0) { audio.currentTime = Math.max(0, t); draw(); return; }
+  const label = { 1: "k", 2: e.shiftKey ? "sg" : "s", 3: "h" }[laneIdx];
+  if (!label) return;
+  // clicking an existing mark in this lane removes it
+  const near = state.hits.findIndex((hit) =>
+    ({ k: 1, s: 2, sg: 2, h: 3 }[hit.label] === laneIdx) && Math.abs(xOf(hit.t, w) - x) <= 5);
+  pushUndo();
+  if (near >= 0) state.hits.splice(near, 1);
+  else state.hits.push({ t: snapTime(t, label), label });
+  state.hits.sort((p, q) => p.t - q.t);
+  save(); updateCounts(); draw();
+});
+
+$("undo").onclick = undo;
+function undo() {
+  if (!state.undo.length) return;
+  state.hits = JSON.parse(state.undo.pop()); save(); updateCounts(); draw();
+}
+
+// ---------- playback ----------
+function togglePlay() {
+  if (state.current < 0) return;
+  const [a, b] = state.regions[state.current];
+  if (audio.paused) {
+    if (audio.currentTime < a - PAD || audio.currentTime >= b) audio.currentTime = a - 0.05;
+    audio.playbackRate = state.rate;
+    audio.play();
+  } else audio.pause();
+}
+$("play").onclick = togglePlay;
+$("restart").onclick = () => { if (state.current >= 0) { audio.currentTime = state.regions[state.current][0] - 0.05; draw(); } };
+document.querySelectorAll("[data-rate]").forEach((btn) => {
+  btn.onclick = () => {
+    state.rate = +btn.dataset.rate; audio.playbackRate = state.rate;
+    document.querySelectorAll("[data-rate]").forEach((x) => x.classList.toggle("on", x === btn));
+  };
+  if (+btn.dataset.rate === state.rate) btn.classList.add("on");
+});
+audio.addEventListener("play", () => ($("play").textContent = "⏸ 停止"));
+audio.addEventListener("pause", () => ($("play").innerHTML = "▶ 再生 <kbd>Space</kbd>"));
+(function tick() {
+  if (state.current >= 0 && !audio.paused) {
+    const [a, b] = state.regions[state.current];
+    if (audio.currentTime > b + PAD) {
+      if ($("loop").checked) audio.currentTime = a - 0.05; else audio.pause();
+    }
+    draw();
+  }
+  requestAnimationFrame(tick);
+})();
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+  else if (e.key === "r" || e.key === "R") $("restart").click();
+  else if (e.key === "ArrowRight") selectRegion(state.current + 1);
+  else if (e.key === "ArrowLeft") selectRegion(state.current - 1);
+  else if ((e.metaKey || e.ctrlKey) && e.key === "z") { e.preventDefault(); undo(); }
+});
+
+// ---------- export ----------
+$("export").onclick = async () => {
+  const rows = ["time_sec,label", ...state.hits.map((h) => `${h.t.toFixed(3)},${h.label}`)];
+  const text = rows.join("\n") + "\n";
+  if (state.server) {
+    const res = await fetch("hits", { method: "POST", body: text });
+    setStatus(res.ok ? `保存しました (${state.hits.length} 打)` : "保存に失敗: " + (await res.text()));
+    return;
+  }
+  const blob = new Blob([text], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "hits.csv"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+window.addEventListener("resize", draw);
+refresh(); draw();
+
+// Started by `poc annotate`: load everything from the local server.
+(async function startFromServer() {
+  if (location.protocol === "file:") return;
+  let config;
+  try {
+    const res = await fetch("config");
+    if (!res.ok) return;
+    config = await res.json();
+  } catch (e) { return; }
+  state.server = true;
+  $("filePanel").style.display = "none";
+  state.regions = config.regions;
+  state.hits = parseCsv(config.hits_csv || "");
+  const res = await fetch("audio");
+  await loadAudio(await res.blob(), config.name);
+  if (config.hits_csv) setStatus(`${config.name}: 保存済みの ${state.hits.length} 打を読み込みました`);
+})();
+</script>
+</body>
+</html>

@@ -69,3 +69,45 @@ class FakeSeparator:
 @pytest.fixture
 def fake_separator() -> FakeSeparator:
     return FakeSeparator()
+
+
+def synth_drums(hits, sec: float, sr: int = 44100, channels: int = 1) -> np.ndarray:
+    """Render (time_sec, instrument, velocity) hits: kick = 60 Hz decaying sine,
+    snare = noise + 200 Hz tone, hihat = high-passed noise. Amplitude ∝ velocity / 127."""
+    n = int(sec * sr)
+    out = np.zeros(n, dtype=np.float32)
+    rng = np.random.default_rng(1)
+    for time_sec, instrument, velocity in hits:
+        start = int(round(time_sec * sr))
+        length = int((0.25 if instrument == "kick" else 0.12) * sr)
+        t = np.arange(length) / sr
+        if instrument == "kick":
+            sound = np.sin(2 * np.pi * 60 * t) * np.exp(-t * 18)
+        elif instrument == "snare":
+            tone = np.sin(2 * np.pi * 200 * t)
+            sound = (rng.uniform(-1, 1, length) * 0.7 + tone) * np.exp(-t * 30)
+        else:
+            noise = rng.uniform(-1, 1, length)
+            sound = np.diff(noise, prepend=0.0) * 0.5 * np.exp(-t * 60)
+        stop = min(n, start + length)
+        if start < n:
+            out[start:stop] += (velocity / 127) * 0.8 * sound[: stop - start].astype(np.float32)
+    return np.tile(out, (channels, 1))
+
+
+class FakeTranscriber:
+    """Returns a fixed list of DrumEvent."""
+
+    def __init__(self, events=None, thresholds=(0.2,)):
+        self.events = list(events or [])
+        self.thresholds = list(thresholds)
+
+    def transcribe(self, audio_path):
+        from poc.domain import TranscriberInfo
+
+        return list(self.events), TranscriberInfo(
+            method="fake",
+            version="0",
+            params={"thresholds": self.thresholds},
+            device="cpu",
+        )

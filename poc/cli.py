@@ -46,6 +46,144 @@ def _cmd_check_repro(args: argparse.Namespace) -> int:
     return 0 if passed else 1
 
 
+def _cmd_transcribe(args: argparse.Namespace) -> int:
+    from poc.transcription.adtof_adapter import AdtofTranscriber, parse_thresholds
+    from poc.transcription.run import run_transcription
+
+    transcriber = AdtofTranscriber(thresholds=parse_thresholds(args.thresholds))
+    out = run_transcription(args.poc1_run_dir, args.input, args.output_dir, transcriber)
+    data = json.loads((out / "transcription.json").read_text())
+    for warning in data["warnings"]:
+        print(f"warning: {warning['code']}: {warning['message']}", file=sys.stderr)
+    print(out.resolve())
+    return 0
+
+
+def _cmd_check_events(args: argparse.Namespace) -> int:
+    from poc.transcription.run import compare_transcriptions
+
+    n_a, n_b, mismatches, passed = compare_transcriptions(
+        args.transcription_dir_a, args.transcription_dir_b
+    )
+    result = "PASS" if passed else "FAIL"
+    print(f"events_a={n_a} events_b={n_b} mismatches={mismatches} result={result}")
+    return 0 if passed else 1
+
+
+def _cmd_record(args: argparse.Namespace) -> int:
+    from poc.errors import UserInputError
+    from poc.recording.devices import describe_devices
+
+    if args.list_devices:
+        print(describe_devices())
+        return 0
+    if args.check:
+        from poc.recording.check import run_check
+
+        return 0 if run_check(args.device, args.midi_port) else 1
+    if args.calibrate:
+        from poc.recording.record import record_calibration
+
+        out = record_calibration(args.device, args.midi_port, args.output_dir / "calibrations")
+        print((out / "calibration.json").read_text(), file=sys.stderr)
+        print(out.resolve())
+        return 0
+    if args.poc1_run_dir is None:
+        raise UserInputError("give a PoC 1 run directory, --calibrate, --check, or --list-devices")
+    from poc.recording.record import record_play_along
+
+    out = record_play_along(
+        args.poc1_run_dir,
+        args.device,
+        args.midi_port,
+        args.output_dir,
+        args.max_seconds,
+        click=args.click,
+    )
+    data = json.loads((out / "recording.json").read_text())
+    print(f"notes={data['note_count']} duration={data['duration_sec']:.1f}s", file=sys.stderr)
+    print(out.resolve())
+    return 0
+
+
+def _print_evaluation(out: Path) -> None:
+    data = json.loads((out / "evaluation.json").read_text())
+    print(f"evaluation: {out.resolve()}", file=sys.stderr)
+    for kind, result in data["results"].items():
+        print(f"[{kind}]  instrument  P      R      F1     median|p95 ms", file=sys.stderr)
+        for inst, m in result["metrics"].items():
+            t = m["timing_ms"]
+            cells = [m["precision"], m["recall"], m["f1"]]
+            text = "  ".join("  -  " if v is None else f"{v:.3f}" for v in cells)
+            timing = "-" if t["median_abs"] is None else f"{t['median_abs']:.1f}|{t['p95_abs']:.1f}"
+            print(f"  {inst:8s}  {text}  {timing}", file=sys.stderr)
+    if data.get("residual_drum_hits"):
+        print(f"residual original drums: {data['residual_drum_hits']['counts']}", file=sys.stderr)
+
+
+def _cmd_annotate(args: argparse.Namespace) -> int:
+    from poc.evaluation.annotate import annotation_config, serve
+
+    config = annotation_config(args.annotation_yaml, args.runs_dir, args.source)
+    serve(config, port=args.port, open_browser=not args.no_browser)
+    return 0
+
+
+def _cmd_evaluate(args: argparse.Namespace) -> int:
+    from poc.errors import UserInputError
+    from poc.evaluation.events_eval import evaluate_annotation, evaluate_recording
+    from poc.transcription.adtof_adapter import AdtofTranscriber, parse_thresholds
+
+    transcriber = AdtofTranscriber(thresholds=parse_thresholds(args.thresholds))
+    if args.annotation:
+        out = evaluate_annotation(
+            args.annotation, transcriber=transcriber, tolerance_ms=args.tolerance_ms
+        )
+    elif args.recording_dir:
+        from poc.separation.demucs_adapter import DemucsSeparator
+
+        out = evaluate_recording(
+            args.recording_dir,
+            separator=DemucsSeparator(),
+            transcriber=transcriber,
+            calibration_dir=args.calibration,
+            tolerance_ms=args.tolerance_ms,
+            ghost_velocity=args.ghost_velocity,
+        )
+    else:
+        raise UserInputError("give a recording directory or --annotation")
+    _print_evaluation(out)
+    print(out.resolve())
+    return 0
+
+
+def _cmd_summarize_events(args: argparse.Namespace) -> int:
+    from poc.evaluation.events_summary import summarize_events
+
+    _, markdown = summarize_events(args.evaluations_dir, args.report_dir)
+    print(markdown, end="")
+    return 0
+
+
+def _cmd_tune_thresholds(args: argparse.Namespace) -> int:
+    from poc.evaluation.tuning import load_songs, report_markdown, tune
+    from poc.transcription.adtof_adapter import AdtofTranscriber, events_from_activations
+
+    transcriber = AdtofTranscriber()
+    songs = load_songs(args.evaluations_dir, args.recordings_dir, transcriber.activations)
+
+    def events_fn(activations, thresholds):
+        return events_from_activations(activations, {**transcriber.thresholds, **thresholds})
+
+    report = tune(songs, events_fn)
+    markdown = report_markdown(report)
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    (args.report_dir / "poc2_thresholds.md").write_text(markdown)
+    (args.report_dir / "poc2_thresholds.json").write_text(json.dumps(report, indent=1) + "\n")
+    print(markdown, end="")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="poc", description="AI Drum Practice Coach PoC tools")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -68,6 +206,66 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("run_dir_b", type=Path)
     p.add_argument("--tolerance", type=float, default=1e-4)
     p.set_defaults(func=_cmd_check_repro)
+
+    # --- PoC 2 (specs/002-drum-event-extraction/contracts/cli.md) ---
+    p = sub.add_parser("transcribe", help="extract drum events from a PoC 1 run")
+    p.add_argument("poc1_run_dir", type=Path)
+    p.add_argument("--input", choices=["drum_stem", "mix", "accompaniment"], default="drum_stem")
+    p.add_argument("--output-dir", type=Path, default=Path("output/transcriptions"))
+    p.add_argument("--thresholds", default="", help="e.g. kick=0.12,hihat=0.12")
+    p.set_defaults(func=_cmd_transcribe)
+
+    p = sub.add_parser("check-events", help="compare events of two transcriptions of one input")
+    p.add_argument("transcription_dir_a", type=Path)
+    p.add_argument("transcription_dir_b", type=Path)
+    p.set_defaults(func=_cmd_check_events)
+
+    p = sub.add_parser("record", help="record a TD-17 play-along (MIDI + drum audio)")
+    p.add_argument("poc1_run_dir", type=Path, nargs="?")
+    p.add_argument("--check", action="store_true", help="check loopback and pad note numbers")
+    p.add_argument("--calibrate", action="store_true", help="measure MIDI-to-audio latency per pad")
+    p.add_argument("--list-devices", action="store_true")
+    p.add_argument("--device", default="TD-17")
+    p.add_argument("--midi-port", default="TD-17")
+    p.add_argument("--output-dir", type=Path, default=Path("output/recordings"))
+    p.add_argument("--max-seconds", type=float, help="stop after this many seconds of the song")
+    p.add_argument(
+        "--click", action="store_true", help="play a click on every song beat (Beat This!)"
+    )
+    p.set_defaults(func=_cmd_record)
+
+    p = sub.add_parser("annotate", help="mark hits of a song in the browser (manual annotation)")
+    p.add_argument("annotation_yaml", type=Path)
+    p.add_argument(
+        "--source",
+        choices=["drums", "song"],
+        default="drums",
+        help="play the PoC 1 drum stem (default) or the original song",
+    )
+    p.add_argument("--runs-dir", type=Path, default=Path("output/runs"))
+    p.add_argument("--port", type=int, default=0, help="default: any free port")
+    p.add_argument("--no-browser", action="store_true")
+    p.set_defaults(func=_cmd_annotate)
+
+    p = sub.add_parser("evaluate", help="evaluate drum events against ground truth")
+    p.add_argument("recording_dir", type=Path, nargs="?")
+    p.add_argument("--annotation", type=Path)
+    p.add_argument("--tolerance-ms", type=float, default=50.0)
+    p.add_argument("--ghost-velocity", type=int, default=40)
+    p.add_argument("--calibration", type=Path, help="calibration directory (default: latest)")
+    p.add_argument("--thresholds", default="", help="e.g. kick=0.12,hihat=0.12")
+    p.set_defaults(func=_cmd_evaluate)
+
+    p = sub.add_parser("summarize-events", help="aggregate PoC 2 evaluations")
+    p.add_argument("--evaluations-dir", type=Path, default=Path("output/evaluations"))
+    p.add_argument("--report-dir", type=Path, default=Path("output/reports"))
+    p.set_defaults(func=_cmd_summarize_events)
+
+    p = sub.add_parser("tune-thresholds", help="choose detection thresholds with TD-17 data")
+    p.add_argument("--evaluations-dir", type=Path, default=Path("output/evaluations"))
+    p.add_argument("--recordings-dir", type=Path, default=Path("output/recordings"))
+    p.add_argument("--report-dir", type=Path, default=Path("output/reports"))
+    p.set_defaults(func=_cmd_tune_thresholds)
 
     return parser
 
