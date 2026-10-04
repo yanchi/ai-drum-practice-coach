@@ -54,6 +54,7 @@ def summarize_beats(evaluations_dir: Path, report_dir: Path) -> str:
     ]
     taps = _latest(evaluations, "mix", "td17_taps")
     stem = _latest(evaluations, "drum_stem", "td17_taps")
+    manual = _latest(evaluations, "mix", "manual")  # precise enough for grid positions (SC-004)
     jitters = [
         d["tap_jitter_ms"]
         for d in taps
@@ -72,7 +73,7 @@ def summarize_beats(evaluations_dir: Path, report_dir: Path) -> str:
     down_f = _pooled_f(taps, ADOPTED, "downbeats")
     bpm_errors = [_variant(d, ADOPTED)["bpm_error_pct"] for d in taps]
     meters = [_variant(d, ADOPTED)["meter_match"] for d in taps]
-    mapping = _pooled_mapping(taps, ADOPTED)
+    mapping = _pooled_mapping(manual, ADOPTED)
     jitter = max((j["median_abs"] for j in jitters), default=None)
     times = [
         d["beatgrid"]["timings_sec"]["total"] * FOUR_MINUTES / d["beatgrid"]["duration_sec"]
@@ -107,10 +108,10 @@ def summarize_beats(evaluations_dir: Path, report_dir: Path) -> str:
             ),
         ),
         (
-            "SC-004 Mapping accuracy",
+            "SC-004 Mapping accuracy (hand-marked beats)",
             f"≥ {TARGETS['mapping']}",
-            _fmt(mapping),
-            status(None if mapping is None else mapping >= TARGETS["mapping"]),
+            f"{_fmt(mapping)} ({len(manual)} songs; taps: {_fmt(_pooled_mapping(taps, ADOPTED))})",
+            "N/A" if mapping is None else ("PASS" if mapping >= TARGETS["mapping"] else "FAIL"),
         ),
         (
             "SC-005 Songs with taps / tap jitter",
@@ -136,8 +137,8 @@ def summarize_beats(evaluations_dir: Path, report_dir: Path) -> str:
     lines = [
         f"# PoC 3 Beat / Bar Mapping Summary ({date.today().isoformat()})",
         "",
-        f"Songs with tapped ground truth: {len(taps)} / with manual beats for tap jitter: "
-        f"{len(jitters)}",
+        f"Songs with tapped ground truth: {len(taps)} / with hand-marked beats: {len(manual)} "
+        f"/ with tap jitter: {len(jitters)}",
         "",
         "| Criterion | Target | Result | Status |",
         "|---|---|---|---|",
@@ -171,7 +172,7 @@ def summarize_beats(evaluations_dir: Path, report_dir: Path) -> str:
     report_dir = Path(report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "poc3_summary.md").write_text(markdown)
-    _write_csv(report_dir / "poc3_summary.csv", taps + stem)
+    _write_csv(report_dir / "poc3_summary.csv", taps + stem + manual)
     return markdown
 
 
@@ -183,6 +184,7 @@ def _write_csv(path: Path, evaluations: list[dict]) -> None:
                 "evaluation_id",
                 "poc1_run_id",
                 "input",
+                "groundtruth",
                 "variant",
                 "beat_f",
                 "downbeat_f",
@@ -200,6 +202,7 @@ def _write_csv(path: Path, evaluations: list[dict]) -> None:
                         d["evaluation_id"],
                         d["poc1_run_id"],
                         d["beatgrid"]["input_kind"],
+                        d["groundtruth"]["source"],
                         v["name"],
                         v["beats"]["f_measure"],
                         v["downbeats"]["f_measure"],

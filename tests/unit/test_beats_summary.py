@@ -4,7 +4,17 @@ from poc.evaluation.beats_summary import summarize_beats
 
 
 def evaluation(
-    tmp, eid, run, kind="mix", f=0.97, df=0.93, bpm=0.5, meter=True, acc=0.96, jitter=None
+    tmp,
+    eid,
+    run,
+    kind="mix",
+    f=0.97,
+    df=0.93,
+    bpm=0.5,
+    meter=True,
+    acc=0.96,
+    jitter=None,
+    source="td17_taps",
 ):
     metrics = lambda value: {  # noqa: E731
         "tp": round(value * 100),
@@ -25,7 +35,7 @@ def evaluation(
             "duration_sec": 240.0,
             "complete": True,
         },
-        "groundtruth": {"source": "td17_taps"},
+        "groundtruth": {"source": source},
         "variants": [
             {
                 "name": name,
@@ -37,7 +47,7 @@ def evaluation(
                     "events": 100,
                     "matched_bar": 97,
                     "matched_beat": 97,
-                    "matched_grid": 97,
+                    "matched_grid": round(acc * 100),
                     "accuracy": acc,
                 },
             }
@@ -61,6 +71,8 @@ def test_summary_passes_with_five_songs_and_jitter(tmp_path):
         jitter={"median_abs": 12.0, "p95_abs": 25.0, "count": 30},
     )
     evaluation(evals, "20261009-000001_e", "run-0", kind="drum_stem", f=0.9)
+    evaluation(evals, "20261009-000002_e", "run-0", source="manual", acc=0.97)
+    evaluation(evals, "20261009-000003_e", "run-1", source="manual", acc=0.96)
     md = summarize_beats(evals, tmp_path / "reports")
     assert "| SC-001" in md and "PASS" in md.split("| SC-001")[1].split("\n")[0]
     assert "PASS" in md.split("| SC-005")[1].split("\n")[0]
@@ -75,3 +87,15 @@ def test_summary_is_insufficient_without_enough_songs(tmp_path):
     md = summarize_beats(evals, tmp_path / "reports")
     assert "INSUFFICIENT" in md.split("| SC-005")[1].split("\n")[0]
     assert "FAIL" in md.split("| SC-002")[1].split("\n")[0]
+
+
+def test_mapping_accuracy_comes_from_hand_marked_beats(tmp_path):
+    evals = tmp_path / "evals"
+    for i in range(5):
+        evaluation(evals, f"2026100{i}-000000_e", f"run-{i}", acc=0.87)  # taps: coarse
+    md = summarize_beats(evals, tmp_path / "reports")
+    assert "N/A" in md.split("| SC-004")[1].split("\n")[0]
+    evaluation(evals, "20261009-000000_e", "run-0", source="manual", acc=0.97)
+    md = summarize_beats(evals, tmp_path / "reports")
+    row = md.split("| SC-004")[1].split("\n")[0]
+    assert "0.970" in row and "PASS" in row and "taps: 0.870" in row

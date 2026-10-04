@@ -30,7 +30,7 @@ uv run poc record output/runs/<run_id> --tap-beats
 カウントのあと原曲が流れる。**拍ごとにハイハット、小節の頭では同時にキック**を踏む (クリックは鳴らない)。
 最後まで叩いたら、標準エラー出力の「叩き損ねの疑い」を確認する。多ければ録り直す。
 
-### 3b. 手で付ける (1〜2 曲の 1〜2 区間)
+### 3b. 手で付ける (2〜3 曲・各 1 区間 8 小節程度。167 BPM と 187 BPM の曲を含める)
 
 `data/annotations/<名前>/annotation.yaml` に `beat_regions` を足す (8 小節程度):
 
@@ -44,11 +44,13 @@ uv run poc annotate data/annotations/<名前>/annotation.yaml --beats
 ```
 
 全体の波形のレーンをクリックで拍、Shift+クリックで小節の頭。「保存」で `beats.csv` ができる。
+打撃の割り当て (SC-004) は、この手で付けた正解で測る (叩いた正解はグリッド位置の判定には粗い。spec Clarifications)。
 
 ## 4. 評価する
 
 ```bash
-uv run poc evaluate-beats output/beatgrids/<beatgrid_id> --taps output/recordings/<recording_id>
+uv run poc evaluate-beats output/beatgrids/<beatgrid_id> --taps output/recordings/<recording_id>     # 拍・小節の頭・BPM
+uv run poc evaluate-beats output/beatgrids/<beatgrid_id> --annotation data/annotations/<名前>/annotation.yaml   # 打撃の割り当て
 uv run poc check-beats output/beatgrids/<id_a> output/beatgrids/<id_b>    # 同じ曲を 2 回推定して一致 (SC-007)
 uv run poc summarize-beats                                                 # output/reports/poc3_summary.md
 ```
