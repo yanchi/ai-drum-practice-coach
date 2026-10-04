@@ -14,6 +14,7 @@ from poc.recording.note_map import NoteMap, drop_double_triggers
 DOWNBEAT_KICK_SEC = 0.05  # a kick this close to a hi-hat tap marks a downbeat
 LOCAL_INTERVALS = 8
 TAP_TOLERANCE = 0.35  # an interval this far off the local median is reported
+STRAY_FACTOR = 2.0  # a first / last tap this many median intervals away from the rest is stray
 
 
 def taps_to_groundtruth(
@@ -39,7 +40,7 @@ def taps_to_groundtruth(
         t = note["time_sec"] + offset - shift_sec
         if 0 <= t < duration_sec:
             taps[instrument].append(round(t, 6))
-    beats = sorted(taps["hihat"])
+    beats, stray = trim_stray_taps(sorted(taps["hihat"]))
     kicks = np.array(sorted(taps["kick"]))
     downbeats = [t for t in beats if len(kicks) and np.min(np.abs(kicks - t)) <= DOWNBEAT_KICK_SEC]
     return BeatGroundTruth(
@@ -55,8 +56,30 @@ def taps_to_groundtruth(
             "dropped_double_triggers": dropped,
             "shift_sec": round(shift_sec, 6),
         },
-        warnings=tap_warnings(beats),
+        warnings=[
+            RunWarning(
+                code="stray_tap",
+                message=f"stray tap at {t:.2f} s left out of the ground truth",
+                value=round(t, 3),
+            )
+            for t in stray
+        ]
+        + tap_warnings(beats),
     )
+
+
+def trim_stray_taps(beats: list[float]) -> tuple[list[float], list[float]]:
+    """Drop taps at either end that are far from the steady tapping (e.g. a hit during the
+    count-in). Returns (kept beats, dropped taps)."""
+    if len(beats) < 4:
+        return beats, []
+    median = float(np.median(np.diff(beats)))
+    start, end = 0, len(beats)
+    while end - start > 3 and beats[start + 1] - beats[start] > STRAY_FACTOR * median:
+        start += 1
+    while end - start > 3 and beats[end - 1] - beats[end - 2] > STRAY_FACTOR * median:
+        end -= 1
+    return beats[start:end], beats[:start] + beats[end:]
 
 
 def tap_warnings(beats: list[float]) -> list[RunWarning]:

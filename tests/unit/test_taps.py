@@ -65,3 +65,15 @@ def test_missed_and_extra_taps_are_reported():
     codes = [(w.code, round(w.value, 2)) for w in gt.warnings]
     assert ("tap_interval", 5.5) in codes  # the gap where beat 10 is missing starts at 5.5 s
     assert any(code == "tap_interval" and abs(v - 8.5) < 0.01 for code, v in codes)
+
+
+def test_stray_taps_at_the_ends_are_left_out():
+    # tapping starts at 3.0 s; a stray hit at 0.2 s (count-in) and one after the song ends
+    notes = tapped(missing=(0, 1, 2, 3), extra=(0.2,))
+    notes.append({"time_sec": SHIFT_SEC + 30.0, "note": 42, "velocity": 80})
+    gt = convert(sorted(notes, key=lambda n: n["time_sec"]))
+    assert len(gt.beats) == 20
+    assert gt.regions == [(gt.beats[0], gt.beats[-1])]
+    stray = [round(w.value, 2) for w in gt.warnings if w.code == "stray_tap"]
+    assert stray == [0.2, 30.0]
+    assert not [w for w in gt.warnings if w.code == "tap_interval"]
