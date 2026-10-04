@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from poc.beat.beats import click_beats, drum_offset_sec, fill_beat_gaps
+from poc.beat.beats import click_beats
+from poc.beat.grid import drum_offset_sec, fill_beat_gaps
 from poc.errors import UserInputError
 
 

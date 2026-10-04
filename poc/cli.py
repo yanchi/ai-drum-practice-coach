@@ -90,6 +90,23 @@ def _cmd_record(args: argparse.Namespace) -> int:
         return 0
     if args.poc1_run_dir is None:
         raise UserInputError("give a PoC 1 run directory, --calibrate, --check, or --list-devices")
+    if args.tap_beats:
+        from poc.recording.record import record_beat_taps
+
+        out = record_beat_taps(
+            args.poc1_run_dir,
+            args.device,
+            args.midi_port,
+            args.output_dir,
+            max_seconds=args.max_seconds,
+        )
+        data = json.loads((out / "recording.json").read_text())
+        print(
+            f"beats={data['beats']} downbeats={data['downbeats']} notes={data['note_count']}",
+            file=sys.stderr,
+        )
+        print(out.resolve())
+        return 0
     from poc.recording.record import record_play_along
 
     out = record_play_along(
@@ -124,7 +141,7 @@ def _print_evaluation(out: Path) -> None:
 def _cmd_annotate(args: argparse.Namespace) -> int:
     from poc.evaluation.annotate import annotation_config, serve
 
-    config = annotation_config(args.annotation_yaml, args.runs_dir, args.source)
+    config = annotation_config(args.annotation_yaml, args.runs_dir, args.source, beats=args.beats)
     serve(config, port=args.port, open_browser=not args.no_browser)
     return 0
 
@@ -184,6 +201,109 @@ def _cmd_tune_thresholds(args: argparse.Namespace) -> int:
     return 0
 
 
+# --- PoC 3 (specs/003-beat-bar-mapping/contracts/cli.md) ---
+
+
+def _cmd_beats(args: argparse.Namespace) -> int:
+    from poc.beat.beat_this_adapter import BeatThisEstimator
+    from poc.beat.run import load_beatgrid, run_beats
+
+    out = run_beats(
+        args.poc1_run_dir,
+        args.input,
+        args.output_dir,
+        BeatThisEstimator(),
+        regularize=not args.no_regularize,
+        offset=args.offset,
+        transcriptions_dir=args.transcriptions_dir,
+    )
+    grid = load_beatgrid(out)
+    inferred = sum(b.inferred for b in grid.beats)
+    print(
+        f"bpm={grid.bpm} meter={grid.meter} beats={len(grid.beats)} (filled {inferred}) "
+        f"bars={len(grid.downbeats)} downbeats={grid.downbeat_source} "
+        f"(changed {grid.regularization['changed_downbeats']}, "
+        f"phase changes {len(grid.regularization['phase_changes'])}) "
+        f"offset={grid.offset['applied_ms']}ms",
+        file=sys.stderr,
+    )
+    for warning in grid.warnings:
+        print(f"warning: {warning.code}: {warning.message}", file=sys.stderr)
+    print(out.resolve())
+    return 0
+
+
+def _cmd_map(args: argparse.Namespace) -> int:
+    from poc.mapping.reference import load_reference, run_map
+
+    out = run_map(args.beatgrid_dir, args.transcription_dir, args.output_dir)
+    reference = load_reference(out)
+    print(
+        f"events={len(reference.events)} bars={reference.bars} unmapped={reference.unmapped_count}",
+        file=sys.stderr,
+    )
+    print(out.resolve())
+    return 0
+
+
+def _cmd_bars(args: argparse.Namespace) -> int:
+    from poc.mapping.reference import events_in_bars, load_reference
+
+    reference = load_reference(args.reference_dir)
+    print("bar beat grid  instrument  time_sec  deviation_ms")
+    for event, p in events_in_bars(reference, args.first_bar, args.last_bar):
+        print(
+            f"{p.bar:3d} {p.beat:4d} {p.grid:<4s}  {event.instrument:<10s}  "
+            f"{event.time_sec:8.3f}  {p.deviation_ms:+8.1f}"
+        )
+    return 0
+
+
+def _cmd_evaluate_beats(args: argparse.Namespace) -> int:
+    from poc.evaluation.beats_eval import run_evaluate_beats
+
+    out = run_evaluate_beats(
+        args.beatgrid_dir,
+        args.output_dir,
+        taps_dir=args.taps,
+        annotation=args.annotation,
+        transcription_dir=args.transcription,
+        transcriptions_dir=args.transcriptions_dir,
+        tolerance_ms=args.tolerance_ms,
+    )
+    data = json.loads((out / "evaluation.json").read_text())
+    print(f"evaluation: {out.resolve()}", file=sys.stderr)
+    print("variant              beat F  downbeat F  bpm err%  meter  mapping", file=sys.stderr)
+    for v in data["variants"]:
+        cells = [v["beats"]["f_measure"], v["downbeats"]["f_measure"]]
+        text = "  ".join("  -   " if c is None else f"{c:.3f} " for c in cells)
+        print(
+            f"  {v['name']:<18s} {text}     {v['bpm_error_pct']}   {v['meter_match']}  "
+            f"{v['mapping']['accuracy']}",
+            file=sys.stderr,
+        )
+    if data["tap_jitter_ms"]:
+        print(f"tap jitter: {data['tap_jitter_ms']}", file=sys.stderr)
+    print(out.resolve())
+    return 0
+
+
+def _cmd_summarize_beats(args: argparse.Namespace) -> int:
+    from poc.evaluation.beats_summary import summarize_beats
+
+    print(summarize_beats(args.evaluations_dir, args.report_dir), end="")
+    return 0
+
+
+def _cmd_check_beats(args: argparse.Namespace) -> int:
+    from poc.evaluation.beats_summary import compare_beatgrids
+
+    n_a, n_b, diff, passed = compare_beatgrids(args.beatgrid_dir_a, args.beatgrid_dir_b)
+    result = "PASS" if passed else "FAIL"
+    print(f"beats_a={n_a} beats_b={n_b} max_diff_sec={diff:g} result={result}")
+    return 0 if passed else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="poc", description="AI Drum Practice Coach PoC tools")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -232,6 +352,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--click", action="store_true", help="play a click on every song beat (Beat This!)"
     )
+    p.add_argument(
+        "--tap-beats",
+        action="store_true",
+        help="play the original song and tap its beats (hi-hat; kick on downbeats)",
+    )
     p.set_defaults(func=_cmd_record)
 
     p = sub.add_parser("annotate", help="mark hits of a song in the browser (manual annotation)")
@@ -245,6 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--runs-dir", type=Path, default=Path("output/runs"))
     p.add_argument("--port", type=int, default=0, help="default: any free port")
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--beats", action="store_true", help="mark beats / downbeats (beat_regions)")
     p.set_defaults(func=_cmd_annotate)
 
     p = sub.add_parser("evaluate", help="evaluate drum events against ground truth")
@@ -266,6 +392,51 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--recordings-dir", type=Path, default=Path("output/recordings"))
     p.add_argument("--report-dir", type=Path, default=Path("output/reports"))
     p.set_defaults(func=_cmd_tune_thresholds)
+
+    p = sub.add_parser("beats", help="estimate beats / downbeats of a PoC 1 run (BeatGrid)")
+    p.add_argument("poc1_run_dir", type=Path)
+    p.add_argument("--input", choices=["mix", "drum_stem"], default="mix")
+    p.add_argument("--no-regularize", action="store_true", help="use the raw downbeats")
+    p.add_argument(
+        "--offset",
+        action="store_true",
+        help="shift the grid onto the drums of the latest drum stem transcription",
+    )
+    p.add_argument("--transcriptions-dir", type=Path, default=Path("output/transcriptions"))
+    p.add_argument("--output-dir", type=Path, default=Path("output/beatgrids"))
+    p.set_defaults(func=_cmd_beats)
+
+    p = sub.add_parser("map", help="map drum events onto bars and beats (ReferencePerformance)")
+    p.add_argument("beatgrid_dir", type=Path)
+    p.add_argument("transcription_dir", type=Path)
+    p.add_argument("--output-dir", type=Path, default=Path("output/references"))
+    p.set_defaults(func=_cmd_map)
+
+    p = sub.add_parser("bars", help="list the drum events of some bars")
+    p.add_argument("reference_dir", type=Path)
+    p.add_argument("first_bar", type=int)
+    p.add_argument("last_bar", type=int, nargs="?")
+    p.set_defaults(func=_cmd_bars)
+
+    p = sub.add_parser("evaluate-beats", help="evaluate a BeatGrid against beat ground truth")
+    p.add_argument("beatgrid_dir", type=Path)
+    p.add_argument("--taps", type=Path, help="a `record --tap-beats` recording directory")
+    p.add_argument("--annotation", type=Path, help="annotation.yaml with beat_regions")
+    p.add_argument("--transcription", type=Path, help="default: latest drum stem transcription")
+    p.add_argument("--transcriptions-dir", type=Path, default=Path("output/transcriptions"))
+    p.add_argument("--tolerance-ms", type=float, default=70.0)
+    p.add_argument("--output-dir", type=Path, default=Path("output/beat_evaluations"))
+    p.set_defaults(func=_cmd_evaluate_beats)
+
+    p = sub.add_parser("summarize-beats", help="aggregate PoC 3 evaluations")
+    p.add_argument("--evaluations-dir", type=Path, default=Path("output/beat_evaluations"))
+    p.add_argument("--report-dir", type=Path, default=Path("output/reports"))
+    p.set_defaults(func=_cmd_summarize_beats)
+
+    p = sub.add_parser("check-beats", help="compare two BeatGrids of the same input")
+    p.add_argument("beatgrid_dir_a", type=Path)
+    p.add_argument("beatgrid_dir_b", type=Path)
+    p.set_defaults(func=_cmd_check_beats)
 
     return parser
 

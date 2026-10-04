@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from conftest import synth_drums
 
-from poc.beat.beats import detect_beats
+from poc.beat.beat_this_adapter import detect_beats
 
 pytestmark = pytest.mark.slow
 

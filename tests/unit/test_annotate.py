@@ -47,7 +47,7 @@ def test_annotation_config_unknown_run(annotation, tmp_path):
 def test_write_hits_validates_and_normalizes(tmp_path):
     out = tmp_path / "hits.csv"
     assert annotate.write_hits(out, "time_sec,label\n10.5,k\n10.5,h\n11,sg\n\n") == 3
-    assert out.read_text() == "time_sec,label\n10.500,k\n10.500,h\n11.000,sg\n"
+    assert out.read_text() == "time_sec,label\n10.500,h\n10.500,k\n11.000,sg\n"
     with pytest.raises(UserInputError):
         annotate.write_hits(out, "10.5,x\n")
     with pytest.raises(UserInputError):
@@ -80,3 +80,16 @@ def test_server_serves_config_and_saves_hits(annotation, monkeypatch):
     finally:
         servers[0].shutdown()
         thread.join()
+
+
+def test_annotation_config_beats_mode(annotation):
+    path, runs = annotation
+    with pytest.raises(UserInputError):  # no beat_regions yet
+        annotate.annotation_config(path, runs, "drums", beats=True)
+    path.write_text(path.read_text() + "beat_regions:\n  - [40.0, 50.0]\n")
+    (path.parent / "beats.csv").write_text("time_sec,label\n40.000,d\n")
+    config = annotate.annotation_config(path, runs, "drums", beats=True)
+    assert config["mode"] == "beats"
+    assert config["regions"] == [[40.0, 50.0]]
+    assert config["hits_path"] == path.parent / "beats.csv"
+    assert config["hits_csv"].startswith("time_sec,label")

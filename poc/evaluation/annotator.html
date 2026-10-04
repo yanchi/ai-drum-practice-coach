@@ -118,6 +118,7 @@ const state = {
   hits: [],                // {t, label}
   undo: [], env: null,     // env: {start, end, lanes: {wave|k|s|h: Float32Array (per FRAME)}}
   rate: 0.5, server: false,
+  mode: "hits",           // "beats" (PoC 3): mark beats b / downbeats d on the waveform lane
 };
 const $ = (id) => document.getElementById(id);
 const audio = new Audio();
@@ -126,7 +127,7 @@ const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v
 
 function setStatus(text) { $("status").textContent = text; }
 
-function storageKey() { return "drum-annotator:" + state.fileName; }
+function storageKey() { return "drum-annotator:" + state.mode + ":" + state.fileName; }
 function save() {
   try { localStorage.setItem(storageKey(), JSON.stringify(state.hits)); } catch (e) { /* ignore */ }
 }
@@ -188,7 +189,7 @@ function parseCsv(text) {
   const hits = [];
   for (const line of text.split(/\r?\n/)) {
     const [t, label] = line.split(",").map((x) => x && x.trim());
-    if (!t || isNaN(+t) || !["k", "s", "h", "sg"].includes(label)) continue;
+    if (!t || isNaN(+t) || !["k", "s", "h", "sg", "b", "d"].includes(label)) continue;
     hits.push({ t: +t, label });
   }
   return hits;
@@ -264,7 +265,7 @@ async function envelopes(start, end) {
 // ---------- snapping ----------
 function snapTime(t, laneKey) {
   if (!$("snap").checked || !state.env) return t;
-  const env = state.env.lanes[laneKey === "sg" ? "s" : laneKey];
+  const env = state.env.lanes[{ sg: "s", b: "wave", d: "wave" }[laneKey] || laneKey];
   const frame = state.env.frame;  // actual frame length (FRAME rounded to whole samples)
   const idx = (x) => Math.round((x - state.env.start) / frame);
   const lo = Math.max(0, idx(t - SNAP)), hi = Math.min(env.length - 1, idx(t + SNAP));
@@ -334,16 +335,16 @@ function draw() {
   // hits
   for (const hit of state.hits) {
     if (hit.t < state.env.start || hit.t > state.env.end) continue;
-    const laneIdx = { k: 1, s: 2, sg: 2, h: 3 }[hit.label];
+    const laneIdx = { k: 1, s: 2, sg: 2, h: 3, b: 0, d: 0 }[hit.label];
     const y0 = rulerH + laneIdx * laneH, x = xOf(hit.t, w);
-    const color = css(LANES[laneIdx].color);
+    const color = laneIdx ? css(LANES[laneIdx].color) : css(hit.label === "d" ? "--k" : "--head");
     g.strokeStyle = color; g.globalAlpha = hit.label === "sg" ? 0.5 : 1; g.lineWidth = 2;
     if (hit.label === "sg") g.setLineDash([4, 3]);
     g.beginPath(); g.moveTo(x, y0 + 2); g.lineTo(x, y0 + laneH - 2); g.stroke();
     g.setLineDash([]); g.globalAlpha = 1; g.lineWidth = 1;
     g.fillStyle = color; g.font = "bold 11px sans-serif"; g.fillText(hit.label, x + 3, y0 + laneH - 6);
     // faint guide over the full waveform lane
-    g.strokeStyle = color + "66"; g.beginPath(); g.moveTo(x, rulerH); g.lineTo(x, rulerH + laneH); g.stroke();
+    if (laneIdx) { g.strokeStyle = color + "66"; g.beginPath(); g.moveTo(x, rulerH); g.lineTo(x, rulerH + laneH); g.stroke(); }
   }
   // playhead
   const px = xOf(audio.currentTime, w);
@@ -353,9 +354,12 @@ function draw() {
 
 function updateCounts() {
   const inRegion = (t) => state.regions.some(([a, b]) => a <= t && t <= b);
-  const c = { k: 0, s: 0, sg: 0, h: 0 }, out = { n: 0 };
+  const c = { k: 0, s: 0, sg: 0, h: 0, b: 0, d: 0 }, out = { n: 0 };
   for (const hit of state.hits) { if (inRegion(hit.t)) c[hit.label]++; else out.n++; }
-  $("counts").textContent = `区間内: k ${c.k} / s ${c.s} / sg ${c.sg} / h ${c.h}` + (out.n ? ` (区間外 ${out.n} 打は評価に使われません)` : "");
+  const text = state.mode === "beats"
+    ? `区間内: 拍 ${c.b + c.d} (うち小節の頭 ${c.d})`
+    : `区間内: k ${c.k} / s ${c.s} / sg ${c.sg} / h ${c.h}`;
+  $("counts").textContent = text + (out.n ? ` (区間外 ${out.n} 個は評価に使われません)` : "");
 }
 
 // ---------- editing ----------
@@ -367,12 +371,17 @@ canvas.addEventListener("pointerdown", (e) => {
   const { w, rulerH, laneH } = geom();
   const laneIdx = Math.floor((y - rulerH) / laneH);
   const t = tOf(x, w);
-  if (y < rulerH || laneIdx === 0) { audio.currentTime = Math.max(0, t); draw(); return; }
-  const label = { 1: "k", 2: e.shiftKey ? "sg" : "s", 3: "h" }[laneIdx];
+  const beatMode = state.mode === "beats";
+  if (y < rulerH || (laneIdx === 0 && !beatMode) || (laneIdx > 0 && beatMode)) {
+    audio.currentTime = Math.max(0, t); draw(); return;
+  }
+  const label = beatMode
+    ? (e.shiftKey ? "d" : "b")
+    : { 1: "k", 2: e.shiftKey ? "sg" : "s", 3: "h" }[laneIdx];
   if (!label) return;
   // clicking an existing mark in this lane removes it
   const near = state.hits.findIndex((hit) =>
-    ({ k: 1, s: 2, sg: 2, h: 3 }[hit.label] === laneIdx) && Math.abs(xOf(hit.t, w) - x) <= 5);
+    ({ k: 1, s: 2, sg: 2, h: 3, b: 0, d: 0 }[hit.label] === laneIdx) && Math.abs(xOf(hit.t, w) - x) <= 5);
   pushUndo();
   if (near >= 0) state.hits.splice(near, 1);
   else state.hits.push({ t: snapTime(t, label), label });
@@ -432,7 +441,7 @@ $("export").onclick = async () => {
   const rows = ["time_sec,label", ...state.hits.map((h) => `${h.t.toFixed(3)},${h.label}`)];
   const text = rows.join("\n") + "\n";
   if (state.server) {
-    const res = await fetch("hits", { method: "POST", body: text });
+    const res = await fetch(state.mode === "beats" ? "beats" : "hits", { method: "POST", body: text });
     setStatus(res.ok ? `保存しました (${state.hits.length} 打)` : "保存に失敗: " + (await res.text()));
     return;
   }
@@ -455,7 +464,16 @@ refresh(); draw();
     config = await res.json();
   } catch (e) { return; }
   state.server = true;
+  state.mode = config.mode || "hits";
   $("filePanel").style.display = "none";
+  if (state.mode === "beats") {
+    document.querySelector(".guide").innerHTML = `<b>やり方 (拍)</b><ol>
+      <li><kbd>Space</kbd> で区間を再生して聴く</li>
+      <li>拍の位置を <b>一番上の波形</b> でクリック、小節の頭は <b>Shift+クリック</b> (音の立ち上がりに自動で合う)</li>
+      <li>下の 3 段をクリックすると、そこから再生</li>
+      <li>区間を順にやって (<kbd>→</kbd> で次の区間)、最後に「保存」</li></ol>
+      <span class="muted">クリックの音は鳴らない。推定した拍は表示しない (正解が引っ張られないように)。</span>`;
+  }
   state.regions = config.regions;
   state.hits = parseCsv(config.hits_csv || "");
   const res = await fetch("audio");
