@@ -126,8 +126,26 @@ def choose_downbeats(
     }
 
 
+BPM_SPAN = 8  # beats per span when measuring the tempo
+
+
 def bpm_overall(beats: list[float]) -> float:
-    return round(60.0 / float(np.median(np.diff(beats))), 2) if len(beats) > 1 else 0.0
+    """BPM from the median of 8-beat spans. A single interval is quantized by the beat
+    tracker's 20 ms frames (0.32 vs 0.34 s at 187 BPM); a span divides that error by 8.
+    Spans across a break (any interval over 1.5 medians) are skipped."""
+    if len(beats) < 2:
+        return 0.0
+    b = np.asarray(beats)
+    diffs = np.diff(b)
+    if len(b) <= BPM_SPAN:
+        return round(60.0 / float(np.median(diffs)), 2)
+    median = float(np.median(diffs))
+    spans = [
+        (b[i + BPM_SPAN] - b[i]) / BPM_SPAN
+        for i in range(len(b) - BPM_SPAN)
+        if diffs[i : i + BPM_SPAN].max() <= 1.5 * median
+    ]
+    return round(60.0 / float(np.median(spans) if spans else median), 2)
 
 
 def bpm_sections(

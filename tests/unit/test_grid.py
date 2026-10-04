@@ -90,3 +90,11 @@ def test_estimate_meter_bpm_and_sections():
     assert len(sections) == 5
     assert all(s["bpm"] == pytest.approx(120, abs=0.1) for s in sections)
     assert sections[0]["start_sec"] == beats[0]
+
+
+def test_bpm_overall_is_not_quantized_by_frames():
+    true = synthetic_beats(190.6, 60)
+    quantized = [round(t / 0.02) * 0.02 for t in true]  # 20 ms frames: intervals 0.30 / 0.32
+    assert bpm_overall(quantized) == pytest.approx(190.6, rel=0.003)
+    with_break = quantized[:80] + [t + 5.0 for t in quantized[80:]]
+    assert bpm_overall(with_break) == pytest.approx(190.6, rel=0.003)
