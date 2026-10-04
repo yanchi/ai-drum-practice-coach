@@ -75,13 +75,13 @@ Beat This! と TD-17 がなくても動くよう、合成した拍の列・小�
 
 ### Tests for User Story 2
 
-- [ ] T018 [P] [US2] Create `tests/unit/test_reference.py` for `position_of(t, beats, downbeats)` (research R-05): an event 20 ms before a downbeat maps to `beat 1`, grid `"0"`, `deviation_ms ≈ -20` of the next bar; 16th notes map to `"1/4"` / `"1/2"` / `"3/4"`; triplets map to `"1/3"` / `"2/3"`; events before the first downbeat get `bar 0`; events inside a beat gap get `bar None` and `unmapped_reason == "no_beats"`; tempo drift does not change the grid positions
-- [ ] T019 [P] [US2] In `tests/unit/test_reference.py`, test `build_reference(beatgrid, transcription)` rejects different `poc1_run_id` (`UserInputError`), keeps tom / cymbal events, and `events_in_bars(reference, first, last)` returns only those bars
+- [X] T018 [P] [US2] Create `tests/unit/test_reference.py` for `position_of(t, beats, downbeats)` (research R-05): an event 20 ms before a downbeat maps to `beat 1`, grid `"0"`, `deviation_ms ≈ -20` of the next bar; 16th notes map to `"1/4"` / `"1/2"` / `"3/4"`; triplets map to `"1/3"` / `"2/3"`; events before the first downbeat get `bar 0`; events inside a beat gap get `bar None` and `unmapped_reason == "no_beats"`; tempo drift does not change the grid positions
+- [X] T019 [P] [US2] In `tests/unit/test_reference.py`, test `build_reference(beatgrid, transcription)` rejects different `poc1_run_id` (`UserInputError`), keeps tom / cymbal events, and `events_in_bars(reference, first, last)` returns only those bars
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] Create `poc/mapping/reference.py` with `position_of`, `build_reference(beatgrid: BeatGrid, transcription: dict) -> ReferencePerformance`, `events_in_bars`, and `run_map(beatgrid_dir, transcription_dir, output_dir)` writing `reference.json` via a `.partial` directory; `reference_id` = `<YYYYmmdd-HHMMSS>_<beatgrid_id suffix>`
-- [ ] T021 [US2] Implement the `map` and `bars` handlers in `poc/cli.py` (`bars` prints the table in `contracts/cli.md`)
+- [X] T020 [US2] Create `poc/mapping/reference.py` with `position_of`, `build_reference(beatgrid: BeatGrid, transcription: dict) -> ReferencePerformance`, `events_in_bars`, and `run_map(beatgrid_dir, transcription_dir, output_dir)` writing `reference.json` via a `.partial` directory; `reference_id` = `<YYYYmmdd-HHMMSS>_<beatgrid_id suffix>`
+- [X] T021 [US2] Implement the `map` and `bars` handlers in `poc/cli.py` (`bars` prints the table in `contracts/cli.md`)
 
 **Checkpoint**: 1 曲の Reference Performance Data を作り、任意の小節の打撃を確認できた
 

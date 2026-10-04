@@ -217,11 +217,29 @@ def _cmd_beats(args: argparse.Namespace) -> int:
 
 
 def _cmd_map(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.mapping.reference import load_reference, run_map
+
+    out = run_map(args.beatgrid_dir, args.transcription_dir, args.output_dir)
+    reference = load_reference(out)
+    print(
+        f"events={len(reference.events)} bars={reference.bars} unmapped={reference.unmapped_count}",
+        file=sys.stderr,
+    )
+    print(out.resolve())
+    return 0
 
 
 def _cmd_bars(args: argparse.Namespace) -> int:
-    raise NotImplementedError
+    from poc.mapping.reference import events_in_bars, load_reference
+
+    reference = load_reference(args.reference_dir)
+    print("bar beat grid  instrument  time_sec  deviation_ms")
+    for event, p in events_in_bars(reference, args.first_bar, args.last_bar):
+        print(
+            f"{p.bar:3d} {p.beat:4d} {p.grid:<4s}  {event.instrument:<10s}  "
+            f"{event.time_sec:8.3f}  {p.deviation_ms:+8.1f}"
+        )
+    return 0
 
 
 def _cmd_evaluate_beats(args: argparse.Namespace) -> int:
